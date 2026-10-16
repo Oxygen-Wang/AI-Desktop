@@ -1,0 +1,13 @@
+{
+  "format": "qidesk.component-pack",
+  "version": 1,
+  "id": "utility-desk",
+  "name": "效率桌面",
+  "plugins": [],
+  "components": [
+    {"pluginId": "qidesk.system", "name": "系统状态", "text": "", "x": 0, "y": 0, "width": 300, "height": 250, "color": "#B9C0CB"},
+    {"pluginId": "qidesk.calc", "name": "计算器", "text": "", "x": 320, "y": 0, "width": 260, "height": 360, "color": "#7FB0D9"},
+    {"pluginId": "qidesk.habit", "name": "习惯打卡", "text": "每天阅读", "x": 0, "y": 380, "width": 280, "height": 220, "color": "#8CC7A1"},
+    {"pluginId": "qidesk.photos", "name": "照片轮播", "text": "", "x": 320, "y": 380, "width": 320, "height": 240, "color": "#D6A97E"}
+  ]
+}

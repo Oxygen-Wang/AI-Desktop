@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="shell" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#238D7D"/><stop offset="1" stop-color="#174B65"/></linearGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E9F8F3"/></linearGradient>
+  </defs>
+  <rect x="24" y="24" width="464" height="464" rx="112" fill="url(#shell)"/>
+  <rect x="102" y="100" width="128" height="304" rx="28" fill="url(#paper)"/>
+  <rect x="252" y="100" width="158" height="134" rx="28" fill="#D2F1E8"/>
+  <rect x="252" y="256" width="158" height="148" rx="28" fill="#8BDACA"/>
+  <path d="M331 127 C335 151 342 158 366 162 C342 166 335 173 331 197 C327 173 320 166 296 162 C320 158 327 151 331 127 Z" fill="#237C70"/>
+  <rect x="124" y="123" width="84" height="12" rx="6" fill="#B6DDD4"/>
+  <rect x="124" y="151" width="54" height="12" rx="6" fill="#D1EAE3"/>
+</svg>

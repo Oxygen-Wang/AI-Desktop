@@ -1,0 +1,8 @@
+{
+  "id": "daily-water",
+  "name": "喝水打卡",
+  "kind": "habit",
+  "description": "每天点一下，记录连续喝水的天数",
+  "text": "每天喝水",
+  "accent": "#8CC7A1"
+}

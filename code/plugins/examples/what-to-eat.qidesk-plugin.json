@@ -1,0 +1,8 @@
+{
+  "id": "what-to-eat",
+  "name": "今天吃什么",
+  "kind": "choice",
+  "description": "想不出午饭？点一下，从自己填写的选项里抽一个。",
+  "text": "面条\n饺子\n米饭\n沙拉\n火锅\n三明治",
+  "accent": "#D9AA75"
+}

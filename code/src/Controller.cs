@@ -1,0 +1,241 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.IO;
+using System.Windows;
+using System.Windows.Threading;
+using System.Windows.Interop;
+using System.Windows.Media.Animation;
+using System.Threading;
+using System.Diagnostics;
+
+namespace QiDesk {
+public partial class Controller {
+    public readonly Store Store;
+    public ManagerWindow Manager;
+    public string Search="";
+    public bool Running,Hidden,Docked;
+    public List<FenceWindow> Windows=new List<FenceWindow>();
+    public List<WidgetWindow> Widgets=new List<WidgetWindow>();
+    DispatcherTimer projectTimer;
+    IntPtr host;
+    DispatcherTimer timer;
+    bool busy;
+    string fileSignature="";
+    DesktopIcons icons;
+    DesktopGesture gesture;
+    DesktopCreation creation;
+    McpBridge mcp;
+    public bool DragCreationActive {get{return Running&&Docked&&Store.Data.DesktopDragCreate&&creation!=null&&gesture!=null&&gesture.Active;}}
+    List<Rect> previousAreas=new List<Rect>();
+    long lastDesktopActivity=DateTime.UtcNow.Ticks;
+    bool autoHidden;
+    DateTime lastDaily;
+    public Controller(Store store){Store=store;}
+    public void StartProjectDetection(){if(projectTimer==null){projectTimer=new DispatcherTimer(){Interval=TimeSpan.FromSeconds(5)};projectTimer.Tick+=delegate{try{if(IgnoreFiles.Sync(Store.Data)){Store.Save();Refresh();}}catch(Exception ex){Manager.SetStatus("忽略文件同步未完成："+ex.Message);}};}projectTimer.Start();}
+    public void CloseProjectDetection(){if(projectTimer!=null)projectTimer.Stop();}
+    public void AddStarterWidgets(){if(Store.Data.StarterWidgetsAdded)return;Store.Data.StarterWidgetsAdded=true;Store.Save();}
+    public void EnsureDefaultPanels(){if(Store.Data.DefaultPanelsAdded)return;Store.Data.DefaultPanelsAdded=true;GenerateDefaultPanels();}
+    public void GenerateDefaultPanels(){
+        IList<Rect> areas=Manager==null?new List<Rect>{SystemParameters.WorkArea}:Shell.WorkingAreas(Manager);
+        Rect area=areas.OrderByDescending(a=>a.Width*a.Height).First();
+        double margin=16,gap=16,width=Math.Min(600,area.Width-margin*2);double available=Math.Max(480,area.Height-margin*2-gap*2);double appHeight=Math.Max(300,available*.42);double height=(available-appHeight)/2;
+        var folder=Store.Data.Groups.FirstOrDefault(g=>g.Name=="文件夹"&&g.Kind=="文件夹"&&String.IsNullOrEmpty(g.Folder));
+        var work=Store.Data.Groups.FirstOrDefault(g=>g.Name=="文档"&&Store.Data.Groups.Any(child=>child.HostGroupId==g.Id&&child.Name=="图片"));
+        var apps=Store.Data.Groups.FirstOrDefault(g=>g.Name=="应用"&&g.Kind=="应用");
+        var picture=work==null?null:Store.Data.Groups.FirstOrDefault(g=>g.HostGroupId==work.Id&&g.Name=="图片");
+        Store.Checkpoint();bool first=folder==null&&work==null&&apps==null;
+        bool newFolder=folder==null,newWork=work==null,newApps=apps==null;
+        if(newFolder){folder=new Group(){Name="文件夹",Kind="文件夹"};Store.Data.Groups.Add(folder);}
+        if(newWork){work=new Group(){Name="文档"};Store.Data.Groups.Add(work);}
+        if(picture==null){picture=new Group(){Name="图片",Color=work.Color,HostGroupId=work.Id,Page=work.Page,Width=work.Width,Height=work.Height};Store.Data.Groups.Add(picture);}
+        if(newApps){apps=new Group(){Name="应用",Kind="应用",IconSize=30};Store.Data.Groups.Add(apps);}
+        var panels=new[]{folder,work,apps};double top=area.Bottom-margin-available-2*gap;for(int i=0;i<panels.Length;i++){var panel=panels[i];panel.Page=Store.Data.Page;panel.Width=width;panel.Height=i==2?appHeight:height;panel.X=area.Right-width-margin;panel.Y=top;top+=i==2?appHeight:height;top+=gap;}
+        picture.Page=work.Page;
+        if(first)Store.OrganizeDefaultPanels(Store.Data,false);
+        SaveAndRefresh();if(Manager!=null)Manager.SetStatus("默认面板已生成并重新排列；现有分区内容保留，可撤销。");
+    }
+    public void UpdateMcp(){if(Store.Data.McpEnabled&&mcp==null&&Manager!=null)mcp=new McpBridge(this,McpBridge.PipeName);else if(!Store.Data.McpEnabled&&mcp!=null){mcp.Dispose();mcp=null;}}
+    public void CloseMcp(){if(mcp!=null){mcp.Dispose();mcp=null;}}
+    void UpdateComponentDock(){} // 「组件区」面板已移除
+    public void Start(bool docked){if(Running&&Docked&&!docked)Store.RestoreDesktop();Store.DesktopActive=docked;Running=true;Docked=docked;Hidden=false;autoHidden=false;if(docked)ExplorerDesktop.RestoreInteraction();Interlocked.Exchange(ref lastDesktopActivity,DateTime.UtcNow.Ticks);previousAreas=Shell.WorkingAreas(Manager);string key=Layout.Key(previousAreas);if(Store.Data.LayoutMode=="按显示器恢复"&&Store.Data.LastLayoutKey!=key)Store.RestoreLayout(key);Rebuild();Store.RecordLayout(key);Store.Save();if(docked)StartDesktopGuard();if(timer==null){timer=new DispatcherTimer(){Interval=TimeSpan.FromSeconds(2)};timer.Tick+=Tick;}timer.Start();Manager.Refresh();}
+    // 还原守护：桌面模式期间启动，主进程崩溃/被强杀时立刻还原原始桌面。
+    Process desktopGuard;EventWaitHandle desktopGuardStop;string desktopGuardToken;
+    void StartDesktopGuard(){
+        StopDesktopGuard();
+        if(Store.Data.HiddenDesktopItems==null||(Store.Data.HiddenDesktopItems.Count==0&&(Store.Data.ManagedDesktopItems==null||Store.Data.ManagedDesktopItems.Count==0)))return;
+        try{
+            var owner=Process.GetCurrentProcess();desktopGuardToken="Local\\QiDeskRestore-"+Guid.NewGuid().ToString("N");
+            desktopGuardStop=new EventWaitHandle(false,EventResetMode.ManualReset,desktopGuardToken+"-stop");
+            desktopGuard=Process.Start(new ProcessStartInfo(owner.MainModule.FileName,"--desktop-guard "+owner.Id+" "+owner.StartTime.ToUniversalTime().Ticks+" "+desktopGuardToken+" \""+Store.Root+"\""){UseShellExecute=false,CreateNoWindow=true,WindowStyle=ProcessWindowStyle.Hidden});
+        }catch{StopDesktopGuard();}
+    }
+    void StopDesktopGuard(){if(desktopGuardStop!=null){try{desktopGuardStop.Set();}catch{}try{desktopGuardStop.Dispose();}catch{}desktopGuardStop=null;}if(desktopGuard!=null){try{desktopGuard.Dispose();}catch{}desktopGuard=null;}}
+    void Tick(object sender,EventArgs args){if(busy)return;busy=true;try{
+        if(Store.Scan(false)>0){Store.Save();Refresh();}
+        string signature=String.Join("\n",Store.Data.Groups.SelectMany(g=>Store.Items(g,Search)));
+        if(signature!=fileSignature){fileSignature=signature;Refresh();}
+        foreach(var window in Windows.ToArray())window.Refresh();
+        var areas=Shell.WorkingAreas(Manager);if(!areas.SequenceEqual(previousAreas)){Store.Checkpoint();Store.RecordLayout(Layout.Key(previousAreas));if(Store.Data.LayoutMode=="按工作区缩放")Layout.ScaleGroups(Store.Data.Groups.Cast<Group>().Concat(Store.Data.Widgets),previousAreas,areas);else if(Store.Data.LayoutMode=="按显示器恢复")Store.RestoreLayout(Layout.Key(areas));previousAreas=areas;Rebuild();Store.RecordLayout(Layout.Key(areas));Store.Save();}
+        if(Store.Data.AutoDailySnapshot&&lastDaily.Date!=DateTime.Today){Store.DailySnapshot(DateTime.Today);lastDaily=DateTime.Today;}
+        if(Docked&&Store.Data.IdleHideSeconds>0){long idle=DateTime.UtcNow.Ticks-Interlocked.Read(ref lastDesktopActivity);if(!Hidden&&idle>TimeSpan.FromSeconds(Store.Data.IdleHideSeconds).Ticks){SetHidden(true);autoHidden=true;}else if(autoHidden&&Hidden&&Store.Data.AutoShowOnDesktop&&idle<TimeSpan.FromSeconds(2).Ticks){SetHidden(false);autoHidden=false;}}
+        if(Docked){IntPtr current=Shell.DesktopHost();if(current!=host||(Windows.Any(w=>!Shell.DesktopBindingValid(w,current))||Widgets.Any(w=>!Shell.DesktopBindingValid(w,current)))){if(current!=host)ExplorerDesktop.RestoreInteraction();host=current;Rebuild();}else UpdateDesktopIntegration();}
+    }catch(Exception ex){Manager.SetStatus("刷新失败："+ex.Message);}finally{busy=false;}}
+    public bool Stop(){StopDesktopGuard();Running=false;if(timer!=null)timer.Stop();ReleaseDesktopIntegration();foreach(var w in Windows.ToArray())try{w.Close();}catch{}Windows.Clear();foreach(var w in Widgets.ToArray())try{w.Close();}catch{}Widgets.Clear();bool restored=true;try{Store.RestoreDesktop();if(Store.LastError.StartsWith("桌面图标恢复未完成")){restored=false;if(Manager!=null)Manager.SetStatus(Store.LastError);}}catch(Exception ex){restored=false;if(Manager!=null)Manager.SetStatus("桌面图标恢复未完成："+ex.Message);}ExplorerDesktop.RestoreInteraction();if(Manager!=null)Manager.Refresh();return restored;}
+    // 上次未正常退出（崩溃或被强制结束）会残留隐藏项；未启用桌面模式时在启动阶段自动还原，
+    // 避免再次出现“停止后只剩回收站”。返回是否确实执行了恢复。
+    public bool RecoverDesktopIfNeeded(){
+        var data=Store.Data;bool residue=(data.HiddenDesktopItems!=null&&data.HiddenDesktopItems.Count>0)||(data.ManagedDesktopItems!=null&&data.ManagedDesktopItems.Count>0);
+        if(!residue)return false;bool restored=true;
+        try{Store.RestoreDesktop();if(Store.LastError.StartsWith("桌面图标恢复未完成"))restored=false;}catch(Exception ex){restored=false;Store.LastError="桌面图标恢复未完成："+ex.Message;}
+        if(Manager!=null)Manager.SetStatus(restored?"已恢复上次未正常退出时隐藏的 Windows 桌面图标。":Store.LastError);
+        return restored;
+    }
+    public void Rebuild(){
+        foreach(var w in Windows.ToArray())try{w.Close();}catch{}Windows.Clear();
+        foreach(var w in Widgets.ToArray())try{w.Close();}catch{}Widgets.Clear();if(!Running)return;
+        host=Docked?Shell.DesktopHost():IntPtr.Zero;int attached=0,index=0;bool recovered=false;
+        var areas=Shell.WorkingAreas(Manager);
+        foreach(var item in Store.Data.Groups.Where(g=>g.Page==Store.Data.Page&&String.IsNullOrEmpty(g.HostGroupId)).Cast<Group>().Concat(Store.Data.Widgets.Where(w=>w.Page==Store.Data.Page))){recovered=Layout.EnsureVisible(item,areas,index++)||recovered;}
+        bool separated=ResolveCurrentCollisions(areas);
+        foreach(Group g in Store.Data.Groups.Where(g=>g.Page==Store.Data.Page&&String.IsNullOrEmpty(g.HostGroupId))){
+            var w=new FenceWindow(this,g);Windows.Add(w);w.Show();if(Docked&&w.PlaceOnDesktop(host))attached++;if(Hidden&&!g.ExcludeFromHide)w.Hide();
+        }
+        foreach(var widget in Store.Data.Widgets.Where(w=>w.Page==Store.Data.Page)){var plugin=WidgetPlugins.Find(Store.Data,widget.PluginId);if(plugin==null||!plugin.Enabled)continue;var window=new WidgetWindow(this,widget);Widgets.Add(window);window.Show();if(Docked&&window.PlaceOnDesktop(host))attached++;if(Hidden&&!widget.ExcludeFromHide)window.Hide();}
+        if(recovered||separated){Store.Save();Manager.SetStatus(separated?"已将重叠的面板移到最近空位。":"已将屏幕外的分组恢复到可见区域，原配置保存在 state.json.bak。");}
+        if(Docked&&attached!=Windows.Count+Widgets.Count)Manager.SetStatus("部分分组或组件未连接桌面，当前以普通窗口显示。可切换预览模式后重试。");
+        UpdateDesktopIntegration();ScheduleIconPush();
+    }
+    bool ResolveCurrentCollisions(IList<Rect> areas){var items=Store.Data.Groups.Where(g=>g.Page==Store.Data.Page&&String.IsNullOrEmpty(g.HostGroupId)).Cast<Group>().Concat(Store.Data.Widgets.Where(w=>w.Page==Store.Data.Page&&WidgetPlugins.Find(Store.Data,w.PluginId)!=null&&WidgetPlugins.Find(Store.Data,w.PluginId).Enabled)).OrderByDescending(g=>g.Locked).ToArray();var placed=new List<Group>();bool changed=false;foreach(var item in items){if(!item.Locked){Point free;if(GroupArrangement.NearestFree(item,placed,areas,Math.Max(8,Store.Data.SnapGap),out free)&& (Math.Abs(item.X-free.X)>.1||Math.Abs(item.Y-free.Y)>.1)){item.X=free.X;item.Y=free.Y;item.Edge="";changed=true;}}placed.Add(item);}return changed;}
+    void ReleaseDesktopIntegration(){if(creation!=null){creation.Dispose();creation=null;}if(gesture!=null){gesture.Dispose();gesture=null;}if(icons!=null){icons.Dispose();icons=null;}}
+    // 隐藏/恢复 Explorer 的原生图标层。切到别的图标窗口或关闭开关时会释放旧的租约。
+    void ApplyDesktopIconVisibility(){
+        IntPtr list=Store.Data.HideDesktopIcons&&host!=IntPtr.Zero?Shell.DesktopList(host):IntPtr.Zero;
+        if(icons!=null&&icons.Window==list)return;
+        if(icons!=null){icons.Dispose();icons=null;}
+        if(list==IntPtr.Zero)return;
+        try{icons=new DesktopIcons(list);}catch(Exception ex){icons=null;if(Manager!=null)Manager.SetStatus("隐藏原生桌面图标未启用："+ex.Message);}
+    }
+    public void UpdateDesktopIntegration(){
+        if(Running&&Docked)ExplorerDesktop.RestoreInput();
+        bool active=Running&&Docked&&host!=IntPtr.Zero&&Windows.All(w=>w.Docked)&&Widgets.All(w=>w.Docked);
+        if(!active){ReleaseDesktopIntegration();return;}
+        if(Store.Data.IdleHideSeconds==0&&autoHidden){SetHidden(false);autoHidden=false;}
+        try{
+            // 桌面模式时按设置隐藏整个原生图标层，避免散落图标与分区重叠。
+            // DesktopIcons 用独立的守护进程，栖桌异常退出也能恢复图标显示。
+            ApplyDesktopIconVisibility();
+            if(Store.Data.DoubleClickHide||Store.Data.IdleHideSeconds>0||Store.Data.DesktopDragCreate||Store.Data.Pages>1){
+                if(gesture==null){gesture=new DesktopGesture(Manager.Dispatcher,delegate{if(Running&&Docked&&Store.Data.DoubleClickHide)ToggleHidden();},delegate{Interlocked.Exchange(ref lastDesktopActivity,DateTime.UtcNow.Ticks);},delegate(int token,Rect bounds){if(creation!=null)creation.Update(token,bounds);},delegate(int token,Rect bounds){if(creation!=null)creation.Complete(token,bounds);},Shell.WindowScale(Manager),delegate(int delta){if(Running&&Docked)Page(delta);});gesture.SwipeStart=delegate{if(Running&&Docked)SwipeStart();};gesture.SwipeMove=delegate(int delta){if(Running&&Docked)SwipeMove(delta);};gesture.SwipeEnd=delegate(int delta){if(Running&&Docked)SwipeEnd(delta);};}
+                if(Store.Data.DesktopDragCreate&&creation==null)creation=new DesktopCreation(Manager,delegate(Rect bounds,bool folder){if(Running&&Docked)Manager.CreateSelectedGroup(bounds,folder,false);},delegate{if(gesture!=null)gesture.ResetCreation();});
+                if(!Store.Data.DesktopDragCreate&&creation!=null){creation.Dispose();creation=null;}
+                gesture.EnableCreation(Store.Data.DesktopDragCreate);gesture.Start(host);
+            }
+            else {if(creation!=null){creation.Dispose();creation=null;}if(gesture!=null){gesture.Dispose();gesture=null;}}
+        }catch(Exception ex){ReleaseDesktopIntegration();if(Manager!=null)Manager.SetStatus("桌面交互未启用："+ex.Message);}
+    }
+    public void Refresh(){foreach(var w in Windows.ToArray())w.Refresh();foreach(var w in Widgets.ToArray())w.Refresh();if(Manager!=null)Manager.Refresh();}
+    public bool TryMergeGroup(Group source,Point screenPoint,FenceWindow moving){
+        foreach(var targetWindow in Windows.ToArray()){
+            if(targetWindow==moving||targetWindow.Group==source||!targetWindow.IsVisible)continue;
+            Point local=targetWindow.PointFromScreen(screenPoint);
+            if(local.X<0||local.X>targetWindow.ActualWidth||local.Y<0||local.Y>42)continue;
+            Group target=targetWindow.Group;if(target.Id==source.Id||!String.IsNullOrEmpty(target.HostGroupId))continue;
+            source.HostGroupId=target.Id;source.Page=target.Page;
+            foreach(var child in Store.Data.Groups.Where(g=>g.HostGroupId==source.Id).ToArray()){child.HostGroupId=target.Id;child.Page=target.Page;}
+            target.ActiveGroupId=source.Id;SaveAndRefresh();return true;
+        }return false;
+    }
+    public void DetachGroup(Group host,Group member){if(member.HostGroupId!=host.Id)return;Store.Checkpoint();member.HostGroupId="";member.Page=host.Page;member.X=host.X+36;member.Y=host.Y+48;host.ActiveGroupId=host.Id;SaveAndRefresh();}
+    public void SaveAndRefresh(bool rebuild=true){try{if(Running)Store.RecordLayout(Layout.Key(previousAreas));Store.Save();if(rebuild)Rebuild();Refresh();ScheduleIconPush();}catch(Exception ex){Manager.SetStatus("保存失败："+ex.Message);}}
+    bool pageAnimating;
+    public void Page(int delta){
+        if(pageAnimating||delta==0||Store.Data.Pages<2)return;
+        int direction=Math.Sign(delta);
+        if(!Running||Hidden||Windows.Count+Widgets.Count==0){Store.Data.Page=(Store.Data.Page+delta+Store.Data.Pages)%Store.Data.Pages;SaveAndRefresh();return;}
+        pageAnimating=true;
+        foreach(Window window in Windows.Cast<Window>().Concat(Widgets.Cast<Window>())){
+            double left=window.Left;var slide=new DoubleAnimation(left,left-direction*88,TimeSpan.FromMilliseconds(150)){FillBehavior=FillBehavior.Stop,EasingFunction=new CubicEase(){EasingMode=EasingMode.EaseIn}};
+            window.BeginAnimation(Window.LeftProperty,slide);window.BeginAnimation(Window.OpacityProperty,new DoubleAnimation(window.Opacity,0,TimeSpan.FromMilliseconds(150)){FillBehavior=FillBehavior.Stop});
+        }
+        var delay=new DispatcherTimer(){Interval=TimeSpan.FromMilliseconds(155)};
+        delay.Tick+=delegate{delay.Stop();Store.Data.Page=(Store.Data.Page+delta+Store.Data.Pages)%Store.Data.Pages;SaveAndRefresh();foreach(Window window in Windows.Cast<Window>().Concat(Widgets.Cast<Window>())){
+            double left=window.Left;window.BeginAnimation(Window.LeftProperty,new DoubleAnimation(left+direction*88,left,TimeSpan.FromMilliseconds(210)){FillBehavior=FillBehavior.Stop,EasingFunction=new CubicEase(){EasingMode=EasingMode.EaseOut}});
+            window.BeginAnimation(Window.OpacityProperty,new DoubleAnimation(0,1,TimeSpan.FromMilliseconds(210)){FillBehavior=FillBehavior.Stop});
+        }pageAnimating=false;};delay.Start();
+    }
+    public void ToggleHidden(){autoHidden=false;SetHidden(!Hidden);}
+    // 双键横滑：拖动时让分区跟随手指（手机式），松手后按位移翻页或回弹。
+    List<Tuple<Window,double>> swipeBases;
+    public void SwipeStart(){swipeBases=null;if(!Running||Hidden||Store.Data.Pages<2)return;swipeBases=new List<Tuple<Window,double>>();foreach(Window window in Windows.Cast<Window>().Concat(Widgets.Cast<Window>()))swipeBases.Add(Tuple.Create(window,window.Left));}
+    public void SwipeMove(int delta){if(swipeBases==null)return;double offset=delta*.45;foreach(var basis in swipeBases){try{basis.Item1.Left=basis.Item2+offset;}catch{}}}
+    public void SwipeEnd(int delta){if(swipeBases==null)return;var bases=swipeBases;swipeBases=null;if(Math.Abs(delta)>=90){Page(delta<0?1:-1);return;}foreach(var basis in bases){Window window=basis.Item1;if(!window.IsVisible)continue;double from=window.Left;window.BeginAnimation(Window.LeftProperty,new DoubleAnimation(from,basis.Item2,TimeSpan.FromMilliseconds(180)){FillBehavior=FillBehavior.Stop});}}
+    // 原生图标自动避开分区与插件：防抖 500ms，避免拖动过程中频繁移动。
+    DispatcherTimer iconPushTimer;
+    public void ScheduleIconPush(){if(!Running||!Docked||!Store.Data.PushIconsAside)return;if(iconPushTimer==null){iconPushTimer=new DispatcherTimer(){Interval=TimeSpan.FromMilliseconds(500)};iconPushTimer.Tick+=delegate{iconPushTimer.Stop();PushIconsAside();};}iconPushTimer.Stop();iconPushTimer.Start();}
+    void PushIconsAside(){
+        if(!Running||!Docked||!Store.Data.PushIconsAside||host==IntPtr.Zero||iconPushRunning)return;
+        var obstacles=new List<Rect>();
+        foreach(var window in Windows)obstacles.Add(new Rect(window.Left,window.Top,window.ActualWidth>1?window.ActualWidth:window.Width,window.ActualHeight>1?window.ActualHeight:window.Height));
+        foreach(var window in Widgets)obstacles.Add(new Rect(window.Left,window.Top,window.ActualWidth>1?window.ActualWidth:window.Width,window.ActualHeight>1?window.ActualHeight:window.Height));
+        IntPtr list=Shell.DesktopList(host);if(list==IntPtr.Zero)return;double scale=Shell.WindowScale(Manager);
+        iconPushRunning=true;
+        var thread=new Thread(delegate(){
+            try{
+                int moved=DesktopIconLayout.PushAside(list,scale,obstacles,true);string error=DesktopIconLayout.LastError;var manager=Manager;
+                if(manager!=null)manager.Dispatcher.BeginInvoke(new Action(delegate{if(moved>0)manager.SetStatus("已将 "+moved+" 个原生图标动态避让到空位。");else if(error.Length>0)manager.SetStatus(error);}));
+            }catch(Exception ex){var manager=Manager;if(manager!=null)manager.Dispatcher.BeginInvoke(new Action(delegate{manager.SetStatus("图标避让未完成："+ex.Message);}));}
+            finally{iconPushRunning=false;}
+        }){IsBackground=true,Name="QiDesk icon avoid"};
+        thread.Start();
+    }
+    volatile bool iconPushRunning;
+    void SetHidden(bool hidden){Hidden=hidden;foreach(var w in Windows){if(Hidden&&!w.Group.ExcludeFromHide)w.Hide();else {w.Show();if(Docked)w.PlaceOnDesktop(host);}}foreach(var w in Widgets){if(Hidden&&!w.Widget.ExcludeFromHide)w.Hide();else{w.Show();if(Docked)w.PlaceOnDesktop(host);}}UpdateComponentDock();Manager.Refresh();}
+    public int OrganizeLoose(IEnumerable<string> paths){int count=0;foreach(string p in paths){if(Store.Assigned(p)!=null||Store.Data.Excluded.Contains(p,StringComparer.OrdinalIgnoreCase))continue;var g=Store.Match(p);if(g!=null){Store.Assign(p,g);count++;}}return count;}
+    // 把文件从某个分区移出，并在数据层归到另一个现有分区，避免隐藏原生图标后文件“看不见”。
+    public void MoveOut(string path,Group source){
+        if(Store.Assigned(path)==null)return;
+        Store.Checkpoint();Store.RemoveFromGroups(path);
+        Group target=DesktopItemDrag.MoveOutTarget(Store,source,path);
+        if(target!=null)Store.Assign(path,target);
+        SaveAndRefresh();
+        if(Manager!=null)Manager.SetStatus(target!=null?"已将 "+Path.GetFileName(path)+" 移到「"+target.Name+"」分区。":"已将 "+Path.GetFileName(path)+" 移出分区；没有其它分区可接收，暂保留在桌面。");
+    }
+    // Ctrl＋左键多选桌面分区：选中后可以一起弹成一个工作区面板。
+    public readonly HashSet<string> SelectedGroups=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    public bool ToggleGroupSelection(Group group){
+        if(group==null)return false;
+        bool selected;
+        if(SelectedGroups.Contains(group.Id)){SelectedGroups.Remove(group.Id);selected=false;}else{SelectedGroups.Add(group.Id);selected=true;}
+        foreach(var window in Windows)window.RefreshSelection();
+        if(Manager!=null)Manager.SetStatus(selected?SelectedGroups.Count+" 个分区已选中：右键或按 Enter 弹成工作区面板。":"已取消选中。");
+        return selected;
+    }
+    public void ClearGroupSelection(){if(SelectedGroups.Count==0)return;SelectedGroups.Clear();foreach(var window in Windows)window.RefreshSelection();}
+    public void PopOutSelectedGroups(){
+        if(SelectedGroups.Count==0)return;
+        var ids=SelectedGroups.ToArray();SelectedGroups.Clear();
+        foreach(var window in Windows)window.RefreshSelection();
+        if(Manager!=null)Manager.ShowWorkspacePanelWithGroups(ids);
+    }
+    public void ApplyRules(){Store.Checkpoint();int count=OrganizeLoose(Store.DesktopItems());SaveAndRefresh();if(Manager!=null)Manager.SetStatus("按规则整理了 "+count+" 个散落图标；已在分区中的图标保持不变。");}
+    public Group CreateAt(Rect bounds,string name,string folder){if(bounds.IsEmpty||bounds.Width<220||bounds.Height<100)throw new ArgumentException("创建区域至少为 220 × 100。");Store.Checkpoint();var group=new Group(){Name=name,Folder=folder??"",Page=Store.Data.Page,X=bounds.X,Y=bounds.Y,Width=bounds.Width,Height=bounds.Height};Store.Data.Groups.Add(group);SaveAndRefresh();return group;}
+    public void ApplySuggestions(IEnumerable<Suggestion> suggestions){Store.Checkpoint();foreach(var s in suggestions){var g=Store.Data.Groups.FirstOrDefault(x=>x.Id==s.GroupId);if(g!=null&&!Store.Ignored(s.Path,g))Store.Assign(s.Path,g);}SaveAndRefresh();}
+    public void ImportFences(string path){
+        var root=Store.Json.Deserialize<Dictionary<string,object>>(File.ReadAllText(path));
+        var groups=root["groups"] as System.Collections.ArrayList;var icons=root["icons"] as System.Collections.ArrayList;
+        if(groups==null||icons==null)throw new InvalidDataException("导出文件缺少分组和图标记录");
+        var imported=new List<Group>();var idMap=new Dictionary<string,Group>();
+        foreach(Dictionary<string,object> row in groups){
+            string oldId=Convert.ToString(row["id"]);var g=new Group(){Name=Convert.ToString(row["title"]),X=Number(row,"x",40),Y=Number(row,"y",65),Width=Number(row,"width",320),Height=Number(row,"height",340),Folder=Value(row,"folder"),Page=(int)Math.Max(0,Number(row,"page",0)),Rolled=Number(row,"rolled",0)!=0};
+            g.Folder=Environment.ExpandEnvironmentVariables(g.Folder);imported.Add(g);idMap[oldId]=g;
+        }
+        if(imported.Count==0)throw new InvalidDataException("没有可导入的分组");
+        foreach(Dictionary<string,object> row in icons){Group g;string p=Environment.ExpandEnvironmentVariables(Value(row,"path"));if(idMap.TryGetValue(Value(row,"group_id"),out g)&&String.IsNullOrEmpty(g.Folder)&&Store.Exists(p)){p=Path.GetFullPath(p);if(!g.Items.Contains(p,StringComparer.OrdinalIgnoreCase))g.Items.Add(p);}}
+        // Imported organization stays in this application's own JSON state.
+        Store.Checkpoint();Store.Data.Groups=imported;Store.Data.Rules=new List<Rule>();Store.Data.Pages=Math.Max(3,imported.Max(g=>g.Page)+1);Store.Data.Page=0;Store.Data.AutoRules=false;Store.Validate(Store.Data);SaveAndRefresh();
+    }
+    static string Value(Dictionary<string,object> row,string key){object value;return row.TryGetValue(key,out value)?Convert.ToString(value):"";}
+    static double Number(Dictionary<string,object> row,string key,double fallback){double value;return Double.TryParse(Value(row,key),out value)?value:fallback;}
+}
+}

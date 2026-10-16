@@ -1,0 +1,285 @@
+{
+  "canvas": [
+    80,
+    98
+  ],
+  "frame_ms": 120,
+  "states": {
+    "file_drag": {
+      "loop": true,
+      "frames": [
+        "cat_file_drag_0.png"
+      ]
+    },
+    "idle": {
+      "loop": true,
+      "frames": [
+        "cat_idle_0.png"
+      ]
+    },
+    "working": {
+      "loop": true,
+      "frames": [
+        "cat_working_0.png"
+      ]
+    },
+    "waiting": {
+      "loop": true,
+      "frames": [
+        "cat_waiting_0.png"
+      ]
+    },
+    "offline": {
+      "loop": true,
+      "frames": [
+        "cat_offline_0.png"
+      ]
+    },
+    "sleeping": {
+      "loop": true,
+      "frames": [
+        "cat_sleeping_0.png"
+      ]
+    },
+    "dragging": {
+      "loop": true,
+      "frames": [
+        "cat_dragging_0.png"
+      ]
+    },
+    "dropped": {
+      "loop": false,
+      "frames": [
+        "cat_dropped_0.png"
+      ]
+    },
+    "hover": {
+      "loop": true,
+      "frames": [
+        "cat_hover_0.png"
+      ]
+    },
+    "click": {
+      "loop": false,
+      "frames": [
+        "cat_click_0.png"
+      ]
+    },
+    "panel_open": {
+      "loop": false,
+      "frames": [
+        "cat_panel_open_0.png"
+      ]
+    },
+    "panel_close": {
+      "loop": false,
+      "frames": [
+        "cat_panel_close_0.png"
+      ]
+    },
+    "file_in": {
+      "loop": false,
+      "frames": [
+        "cat_file_in_0.png"
+      ]
+    },
+    "file_move": {
+      "loop": false,
+      "frames": [
+        "cat_file_move_0.png"
+      ]
+    },
+    "file_copy": {
+      "loop": false,
+      "frames": [
+        "cat_file_copy_0.png"
+      ]
+    },
+    "delete": {
+      "loop": false,
+      "frames": [
+        "cat_delete_0.png"
+      ]
+    },
+    "new": {
+      "loop": false,
+      "frames": [
+        "cat_new_0.png"
+      ]
+    },
+    "refresh": {
+      "loop": false,
+      "frames": [
+        "cat_refresh_0.png"
+      ]
+    },
+    "error": {
+      "loop": false,
+      "frames": [
+        "cat_error_0.png"
+      ]
+    },
+    "success": {
+      "loop": false,
+      "frames": [
+        "cat_success_0.png"
+      ]
+    },
+    "skill_drag": {
+      "loop": true,
+      "frames": [
+        "cat_skill_drag_0.png"
+      ]
+    },
+    "skill_copy": {
+      "loop": false,
+      "frames": [
+        "cat_skill_copy_0.png"
+      ]
+    },
+    "mcp": {
+      "loop": true,
+      "frames": [
+        "cat_mcp_0.png"
+      ]
+    },
+    "mcp_error": {
+      "loop": false,
+      "frames": [
+        "cat_mcp_error_0.png"
+      ]
+    },
+    "thinking": {
+      "loop": true,
+      "frames": [
+        "cat_thinking_0.png"
+      ]
+    },
+    "search": {
+      "loop": false,
+      "frames": [
+        "cat_search_0.png"
+      ]
+    },
+    "setting": {
+      "loop": false,
+      "frames": [
+        "cat_setting_0.png"
+      ]
+    },
+    "talk": {
+      "loop": false,
+      "frames": [
+        "cat_talk_0.png"
+      ]
+    },
+    "run": {
+      "loop": false,
+      "frames": [
+        "cat_run_0.png"
+      ]
+    },
+    "jump": {
+      "loop": false,
+      "frames": [
+        "cat_jump_0.png"
+      ]
+    },
+    "stretch": {
+      "loop": false,
+      "frames": [
+        "cat_stretch_0.png"
+      ]
+    },
+    "groom": {
+      "loop": false,
+      "frames": [
+        "cat_groom_0.png"
+      ]
+    },
+    "roll": {
+      "loop": false,
+      "frames": [
+        "cat_roll_0.png"
+      ]
+    },
+    "peek": {
+      "loop": false,
+      "frames": [
+        "cat_peek_0.png"
+      ]
+    },
+    "box": {
+      "loop": false,
+      "frames": [
+        "cat_box_0.png"
+      ]
+    },
+    "eat": {
+      "loop": false,
+      "frames": [
+        "cat_eat_0.png"
+      ]
+    },
+    "happy": {
+      "loop": false,
+      "frames": [
+        "cat_happy_0.png"
+      ]
+    },
+    "shy": {
+      "loop": false,
+      "frames": [
+        "cat_shy_0.png"
+      ]
+    },
+    "angry": {
+      "loop": false,
+      "frames": [
+        "cat_angry_0.png"
+      ]
+    },
+    "confused": {
+      "loop": false,
+      "frames": [
+        "cat_confused_0.png"
+      ]
+    },
+    "dizzy": {
+      "loop": false,
+      "frames": [
+        "cat_dizzy_0.png"
+      ]
+    },
+    "sad": {
+      "loop": false,
+      "frames": [
+        "cat_sad_0.png"
+      ]
+    },
+    "excited": {
+      "loop": false,
+      "frames": [
+        "cat_excited_0.png"
+      ]
+    },
+    "tired": {
+      "loop": true,
+      "frames": [
+        "cat_tired_0.png"
+      ]
+    },
+    "music": {
+      "loop": true,
+      "frames": [
+        "cat_music_0.png"
+      ]
+    },
+    "wave": {
+      "loop": false,
+      "frames": [
+        "cat_wave_0.png"
+      ]
+    }
+  }
+}

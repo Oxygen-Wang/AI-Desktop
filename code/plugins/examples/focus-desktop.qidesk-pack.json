@@ -1,0 +1,13 @@
+{
+  "format": "qidesk.component-pack",
+  "version": 1,
+  "id": "focus-desktop-example",
+  "name": "学习与专注桌面",
+  "plugins": [],
+  "components": [
+    {"pluginId":"clock","name":"现在几点","width":280,"height":230,"x":0,"y":0,"color":"#77BFA3"},
+    {"pluginId":"calendar","name":"本月日历","width":310,"height":350,"x":300,"y":0,"color":"#92AAE5"},
+    {"pluginId":"qidesk.tasks","name":"今天的三件事","text":"完成最重要的一件事\n整理今天的资料\n留一点休息时间","width":280,"height":280,"x":0,"y":250,"color":"#8CB5DE"},
+    {"pluginId":"qidesk.focus","name":"专注 25 分钟","focusMinutes":25,"width":280,"height":230,"x":300,"y":370,"color":"#CF9AA5"}
+  ]
+}

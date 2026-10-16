@@ -1,0 +1,8 @@
+{
+  "id": "focus-note",
+  "name": "专注提示",
+  "kind": "note",
+  "description": "显示今天最重要的任务",
+  "text": "先完成今天最重要的一件事。\n\n把下一步写清楚，再开始。",
+  "accent": "#77BFA3"
+}

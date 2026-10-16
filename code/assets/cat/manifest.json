@@ -1,0 +1,286 @@
+{
+  "canvas": [
+    80,
+    98
+  ],
+  "frame_ms": 120,
+  "states": {
+    "file_drag": {
+      "loop": true,
+      "frames": [],
+      "optional_frames": [
+        "file_drag/cat_file_drag_empty_0.png"
+      ]
+    },
+    "idle": {
+      "loop": true,
+      "frames": [
+        "idle/cat_idle_0.png"
+      ]
+    },
+    "working": {
+      "loop": true,
+      "frames": [
+        "working/cat_working_0.png"
+      ]
+    },
+    "waiting": {
+      "loop": true,
+      "frames": [
+        "waiting/cat_waiting_0.png"
+      ]
+    },
+    "offline": {
+      "loop": true,
+      "frames": [
+        "offline/cat_offline_0.png"
+      ]
+    },
+    "sleeping": {
+      "loop": true,
+      "frames": [
+        "sleeping/cat_sleeping_0.png"
+      ]
+    },
+    "dragging": {
+      "loop": true,
+      "frames": [
+        "dragging/cat_dragging_0.png"
+      ]
+    },
+    "dropped": {
+      "loop": false,
+      "frames": [
+        "dropped/cat_dropped_0.png"
+      ]
+    },
+    "hover": {
+      "loop": true,
+      "frames": [
+        "hover/cat_hover_0.png"
+      ]
+    },
+    "click": {
+      "loop": false,
+      "frames": [
+        "click/cat_click_0.png"
+      ]
+    },
+    "panel_open": {
+      "loop": false,
+      "frames": [
+        "panel_open/cat_panel_open_0.png"
+      ]
+    },
+    "panel_close": {
+      "loop": false,
+      "frames": [
+        "panel_close/cat_panel_close_0.png"
+      ]
+    },
+    "file_in": {
+      "loop": false,
+      "frames": [
+        "file_in/cat_file_in_0.png"
+      ]
+    },
+    "file_move": {
+      "loop": false,
+      "frames": [
+        "file_move/cat_file_move_0.png"
+      ]
+    },
+    "file_copy": {
+      "loop": false,
+      "frames": [
+        "file_copy/cat_file_copy_0.png"
+      ]
+    },
+    "delete": {
+      "loop": false,
+      "frames": [
+        "delete/cat_delete_0.png"
+      ]
+    },
+    "new": {
+      "loop": false,
+      "frames": [
+        "new/cat_new_0.png"
+      ]
+    },
+    "refresh": {
+      "loop": false,
+      "frames": [
+        "refresh/cat_refresh_0.png"
+      ]
+    },
+    "error": {
+      "loop": false,
+      "frames": [
+        "error/cat_error_0.png"
+      ]
+    },
+    "success": {
+      "loop": false,
+      "frames": [
+        "success/cat_success_0.png"
+      ]
+    },
+    "skill_drag": {
+      "loop": true,
+      "frames": [
+        "skill_drag/cat_skill_drag_0.png"
+      ]
+    },
+    "skill_copy": {
+      "loop": false,
+      "frames": [
+        "skill_copy/cat_skill_copy_0.png"
+      ]
+    },
+    "mcp": {
+      "loop": true,
+      "frames": [
+        "mcp/cat_mcp_0.png"
+      ]
+    },
+    "mcp_error": {
+      "loop": false,
+      "frames": [
+        "mcp_error/cat_mcp_error_0.png"
+      ]
+    },
+    "thinking": {
+      "loop": true,
+      "frames": [
+        "thinking/cat_thinking_0.png"
+      ]
+    },
+    "search": {
+      "loop": false,
+      "frames": [
+        "search/cat_search_0.png"
+      ]
+    },
+    "setting": {
+      "loop": false,
+      "frames": [
+        "setting/cat_setting_0.png"
+      ]
+    },
+    "talk": {
+      "loop": false,
+      "frames": [
+        "talk/cat_talk_0.png"
+      ]
+    },
+    "run": {
+      "loop": false,
+      "frames": [
+        "run/cat_run_0.png"
+      ]
+    },
+    "jump": {
+      "loop": false,
+      "frames": [
+        "jump/cat_jump_0.png"
+      ]
+    },
+    "stretch": {
+      "loop": false,
+      "frames": [
+        "stretch/cat_stretch_0.png"
+      ]
+    },
+    "groom": {
+      "loop": false,
+      "frames": [
+        "groom/cat_groom_0.png"
+      ]
+    },
+    "roll": {
+      "loop": false,
+      "frames": [
+        "roll/cat_roll_0.png"
+      ]
+    },
+    "peek": {
+      "loop": false,
+      "frames": [
+        "peek/cat_peek_0.png"
+      ]
+    },
+    "box": {
+      "loop": false,
+      "frames": [
+        "box/cat_box_0.png"
+      ]
+    },
+    "eat": {
+      "loop": false,
+      "frames": [
+        "eat/cat_eat_0.png"
+      ]
+    },
+    "happy": {
+      "loop": false,
+      "frames": [
+        "happy/cat_happy_0.png"
+      ]
+    },
+    "shy": {
+      "loop": false,
+      "frames": [
+        "shy/cat_shy_0.png"
+      ]
+    },
+    "angry": {
+      "loop": false,
+      "frames": [
+        "angry/cat_angry_0.png"
+      ]
+    },
+    "confused": {
+      "loop": false,
+      "frames": [
+        "confused/cat_confused_0.png"
+      ]
+    },
+    "dizzy": {
+      "loop": false,
+      "frames": [
+        "dizzy/cat_dizzy_0.png"
+      ]
+    },
+    "sad": {
+      "loop": false,
+      "frames": [
+        "sad/cat_sad_0.png"
+      ]
+    },
+    "excited": {
+      "loop": false,
+      "frames": [
+        "excited/cat_excited_0.png"
+      ]
+    },
+    "tired": {
+      "loop": true,
+      "frames": [
+        "tired/cat_tired_0.png"
+      ]
+    },
+    "music": {
+      "loop": true,
+      "frames": [
+        "music/cat_music_0.png"
+      ]
+    },
+    "wave": {
+      "loop": false,
+      "frames": [
+        "wave/cat_wave_0.png"
+      ]
+    }
+  }
+}

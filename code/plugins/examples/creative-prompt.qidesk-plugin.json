@@ -1,0 +1,8 @@
+{
+  "id": "creative-prompt",
+  "name": "灵感抽签",
+  "kind": "choice",
+  "description": "抽一个小挑战，换种方式开始今天的创作。",
+  "text": "用三句话讲清楚\n只用两种颜色\n从结尾开始写\n画一个奇怪的机器人\n把一个想法变成草图\n出去走五分钟",
+  "accent": "#B8A1DA"
+}
