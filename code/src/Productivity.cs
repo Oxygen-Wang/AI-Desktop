@@ -24,26 +24,10 @@ public sealed class SearchResult {public string Path {get;set;}public long Bytes
 public sealed class SearchResponse {public string Provider {get;set;}public string Message {get;set;}public SearchResult[] Items {get;set;}}
 public static class FileSearch {
     public static string Executable(State s){
-        if(File.Exists(s.EverythingPath))return s.EverythingPath;
-        string root=System.IO.Path.GetFullPath(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory,".."));
-        foreach(string relative in new[]{@"tools\Everything-1.4.1.1032.x86\Everything.exe",@"vendor\Everything-1.4.1.1032.x64\everything.exe"}){
-            string candidate=System.IO.Path.Combine(root,relative);
-            if(File.Exists(candidate))return candidate;
-        }
-        foreach(string folder in new[]{Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)}){
-            string candidate=System.IO.Path.Combine(folder,"Everything","Everything.exe");
-            if(File.Exists(candidate))return candidate;
-        }
-        return "";
+        return EverythingRuntime.Find(s,"Everything.exe");
     }
-    // ES 命令行（es.exe）可能随项目 tools、也可能与 Everything 同目录或装在 Program Files。
     public static string EsExecutable(State s){
-        var candidates=new List<string>();
-        candidates.Add(System.IO.Path.GetFullPath(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..","tools","everything-es","es.exe")));
-        if(!String.IsNullOrEmpty(s.EverythingPath)){try{candidates.Add(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(s.EverythingPath),"es.exe"));}catch{}}
-        foreach(string folder in new[]{Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)})candidates.Add(System.IO.Path.Combine(folder,"Everything","es.exe"));
-        foreach(string path in candidates)if(File.Exists(path))return path;
-        return candidates[0];
+        return EverythingRuntime.Find(s,"es.exe");
     }
     public static string Quote(string value){var b=new StringBuilder("\"");int slashes=0;foreach(char c in value??""){if(c=='\\'){slashes++;continue;}if(c=='\"'){b.Append('\\',slashes*2+1);b.Append(c);}else{b.Append('\\',slashes);b.Append(c);}slashes=0;}b.Append('\\',slashes*2);return b.Append('"').ToString();}
     public static void Show(State s,string query){string exe=Executable(s);if(exe.Length==0)throw new FileNotFoundException("请选择 Everything 程序。");Process.Start(new ProcessStartInfo(exe,"-search "+Quote(query)){UseShellExecute=true});}

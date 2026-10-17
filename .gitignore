@@ -28,3 +28,9 @@ experimental/
 *.suo
 Thumbs.db
 desktop.ini
+
+# Local data produced if a vendored runtime is launched directly.
+/code/vendor/everything/*.ini
+/code/vendor/everything/*.db
+/code/vendor/everything/*.csv
+/code/vendor/everything/*.efu

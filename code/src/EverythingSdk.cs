@@ -36,10 +36,8 @@ public static class EverythingSdk {
     static bool Load(State state){
         if(library!=IntPtr.Zero)return true;
         if(IntPtr.Size!=8)return false;
-        string app=AppDomain.CurrentDomain.BaseDirectory;
-        string configured=String.IsNullOrEmpty(state.EverythingPath)?app:Path.GetDirectoryName(Path.GetFullPath(state.EverythingPath));
-        string[] candidates={Path.Combine(app,"Everything64.dll"),Path.Combine(configured,"Everything64.dll"),
-            Path.GetFullPath(Path.Combine(app,"..","references","EverythingQuickSearch","EverythingQuickSearch","Everything64.dll"))};
+        string[] candidates=EverythingRuntime.Candidates(AppDomain.CurrentDomain.BaseDirectory,
+            state.EverythingPath,"Everything64.dll");
         foreach(string path in candidates.Where(File.Exists)){
             library=LoadLibraryEx(path,IntPtr.Zero,0x8); // absolute, altered DLL search path
             if(library!=IntPtr.Zero)return true;

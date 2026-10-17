@@ -106,11 +106,7 @@ public static class WorkspacePanelTests {
         check(WorkspacePanel.ZoomLadder.Length==9&&WorkspacePanel.ZoomLadder[0]=="图标:96"&&WorkspacePanel.ZoomLadder[8]=="树","the zoom ladder runs from large icons down to the collapsible tree");
         var ladder=new State();WorkspacePanel.ApplyLevel(ladder,"图标:96");check(WorkspacePanel.LadderIndex(ladder.PanelViewMode,ladder.PanelIconSize)==0,"ladder index starts at the largest icon size");
         WorkspacePanel.ApplyLevel(ladder,"树");check(ladder.PanelViewMode=="树"&&WorkspacePanel.LadderIndex("树",ladder.PanelIconSize)==8,"the ladder ends in tree mode");
-        // 小猫素材：两套图片形象都要能找到，矢量形象返回空表示走内置画法。
-        check(DesktopPet.ResolveAsset("默认猫","idle")!=null&&DesktopPet.ResolveAsset("毛绒三花","idle")!=null,"both picture cat skins resolve their idle frame");
-        check(DesktopPet.ResolveAsset("默认猫","sleep")!=null&&DesktopPet.ResolveAsset("毛绒三花","drag")!=null,"cat poses map to the matching asset states");
-        check(DesktopPet.ResolveAsset("矢量猫","idle")==null,"the vector cat skin falls back to the built-in drawing");
-        check(DesktopPet.Skins.Contains("默认猫")&&DesktopPet.Skins.Contains("毛绒三花")&&DesktopPet.Skins.Contains("矢量猫"),"three cat skins are offered");
+        VectorCatTests.Run(root,check);
         UnifiedWorkspaceTests.Run(root,check);
     }
     static void Pump(int milliseconds){

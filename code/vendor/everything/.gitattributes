@@ -1,0 +1,6 @@
+*.exe binary
+*.dll binary
+*.lng binary
+*.txt text eol=lf
+*.json text eol=lf
+*.md text eol=lf

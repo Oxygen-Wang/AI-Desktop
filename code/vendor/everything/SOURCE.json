@@ -1,0 +1,57 @@
+{
+  "source": "https://www.voidtools.com/downloads/",
+  "downloaded": "2026-10-17",
+  "architecture": "x64",
+  "everything": "1.4.1.1032",
+  "es": "1.1.0.38",
+  "sdk": "Official Everything-SDK.zip snapshot; see archive hash",
+  "archives": [
+    {
+      "url": "https://www.voidtools.com/Everything-1.4.1.1032.x64.zip",
+      "sha256": "698df475ec44e638f66f1b6a32d28fea613cec78d3b6310e6abe53431eeb940c"
+    },
+    {
+      "url": "https://www.voidtools.com/ES-1.1.0.38.x64.zip",
+      "sha256": "5e0c70cbf4f694080c34aa7c6c745e606c16fe76a4b5423b93ebf9dc34274c99"
+    },
+    {
+      "url": "https://www.voidtools.com/Everything-SDK.zip",
+      "sha256": "f5716d9513cce6b462b5170a0a2e7e081e191d9bcac6774f5decc061497df443"
+    }
+  ],
+  "files": [
+    {
+      "file": "Everything.exe",
+      "sha256": "f191f756996a14a11e5445fa7103d302efd510cf2fbf920e6c0c8ed51d512e36"
+    },
+    {
+      "file": "Everything.lng",
+      "sha256": "84e0ae09a9e268424ce85a85135c704c534ff60f92e150413b9df05a88979be7"
+    },
+    {
+      "file": "es.exe",
+      "sha256": "f7378761cf6e01f51c4123a485e628d70e3fea147d341f473ce2820844e5cee5"
+    },
+    {
+      "file": "Everything64.dll",
+      "sha256": "81b5be18126acd2c2b913f8f4a821e476b18393cdd3debd03387c50afd8db88f"
+    },
+    {
+      "file": "LICENSE-Everything.txt",
+      "sha256": "1d3ca646798a6d88b5c6ef0910f39a8390fefadf4d09fdf86ab31bc8da03b57f"
+    },
+    {
+      "file": "LICENSE-ES.txt",
+      "sha256": "238dd2a1ba45db2355d3a43c139f0c0fae597ae63ee04a2bd63eda9e370937d5"
+    },
+    {
+      "file": "LICENSE-SDK.txt",
+      "sha256": "0d3a3c3103ecab1645b4a700862311b9c126e9dffcb85713d16d998bb0c61c6c"
+    }
+  ],
+  "licenseSources": [
+    "https://www.voidtools.com/License.txt",
+    "https://github.com/voidtools/ES/blob/master/LICENSE",
+    "Everything-SDK.zip/src/Everything.c copyright header"
+  ]
+}

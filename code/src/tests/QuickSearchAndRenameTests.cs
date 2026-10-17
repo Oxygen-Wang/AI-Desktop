@@ -27,8 +27,7 @@ public static class QuickSearchAndRenameTests {
         string folder=Path.Combine(root,"quick-search");Directory.CreateDirectory(folder);
         string file=Path.Combine(folder,"search-fixture.tmp");File.WriteAllText(file,"fixture");
         var store=new Store(Path.Combine(root,"quick-search-state"));store.Data.UseEverything=false;
-        string portable=Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..","tools","Everything-1.4.1.1032.x86","Everything.exe"));
-        if(File.Exists(portable))check(String.Equals(FileSearch.Executable(store.Data),portable,StringComparison.OrdinalIgnoreCase),"repository portable Everything is discovered before installed copies");
+        CheckRuntime(folder,store.Data,check);
         store.Data.WorkFolders.Add(folder);store.Data.IgnoreRules.Add(new IgnoreRule(){Kind="Git",Pattern="*.tmp"});
         check(!FileSearch.Query(store,"search-fixture",false,20,folder).Items.Any(),"existing scoped search still respects partition ignore policy");
         check(FileSearch.Query(store,"search-fixture",false,20,folder,false).Items.Any(r=>r.Path==file),"search-all includes ignored files from the same provider");
@@ -55,6 +54,26 @@ public static class QuickSearchAndRenameTests {
         pending=new PendingFileRename(){Source=renamed,Destination=Path.Combine(folder,"both.tmp")};File.WriteAllText(pending.Destination,"other");recovered.Data.PendingFileRenames.Add(pending);
         FileRenaming.Recover(recovered.Data);check(recovered.Data.PendingFileRenames.Count==1&&File.ReadAllText(renamed)=="conflict","ambiguous rename recovery keeps its journal and both files");
         recovered.Data.PendingFileRenames.Clear();
+    }
+    static void CheckRuntime(string root,State state,Action<bool,string> check){
+        string app=AppDomain.CurrentDomain.BaseDirectory;
+        foreach(string name in new[]{"Everything.exe","es.exe","Everything64.dll"}){
+            string bundled=Path.Combine(app,"Everything",name);
+            check(File.Exists(bundled),"built application includes "+name);
+            check(EverythingRuntime.Find(state,name)==bundled,"runtime discovery uses bundled "+name);
+        }
+        string custom=Path.Combine(root,"custom-runtime");Directory.CreateDirectory(custom);
+        string exe=Path.Combine(custom,"Everything.exe");File.WriteAllText(exe,"fixture");
+        state.EverythingPath=exe;
+        check(FileSearch.Executable(state)==exe,"explicit Everything executable overrides bundled copy");
+        check(FileSearch.EsExecutable(state)==Path.Combine(app,"Everything","es.exe"),
+            "missing configured CLI falls back to bundled copy");
+        string sdk=Path.Combine(custom,"Everything64.dll");File.WriteAllText(sdk,"fixture");
+        check(EverythingRuntime.Find(state,"Everything64.dll")==sdk,"configured SDK keeps priority");
+        state.EverythingPath="invalid\0path";
+        check(FileSearch.Executable(state)==Path.Combine(app,"Everything","Everything.exe"),
+            "invalid old configured path does not break bundled discovery");
+        state.EverythingPath="";
     }
     public static void Native(string root,Action<bool,string> check){
         string folder=Path.Combine(root,"inline-native");Directory.CreateDirectory(folder);

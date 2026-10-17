@@ -1,15 +1,7 @@
-# 小猫形象素材来源
+# 动态矢量桌宠
 
-这里的 PNG 来自用户提供的参考项目 `references/PathCat-main`（径猫）：
+当前桌宠直接使用 [VectorCatVisual.cs](../../src/VectorCatVisual.cs) 中的 WPF 几何图形绘制，不加载 PNG、精灵图或其他外部运行素材，也不需要 SVG 解析库。
 
-- `references/PathCat-main/quietpet/assets/cat/` → 本目录，逐字复制，未做任何修改。
+三花配色由几何色块组成；呼吸、眨眼、摆尾、睡眠和交互动作通过已有图形的变换实时更新，放大时重新按矢量绘制。窗口拖动、点击工作区和右键菜单仍由 `DesktopPet.cs` 负责。旧配置中的“默认猫”“毛绒三花”“矢量猫”继续有效，其中“矢量猫”使用灰色配色。
 
-结构：
-
-- `idle/cat_idle_0.png`、`sleeping/cat_sleeping_0.png` 等 46 个状态目录，每个目录一张 `<状态>` 单帧图，构成「默认猫」形象。
-- `calico/cat_<状态>_0.png` 共 46 张，构成「毛绒三花」形象。
-- `manifest.json` 是参考项目自己的清单，本应用不读取它。
-
-`code/build.ps1` 会在编译后把这些文件原样复制到 `dist/cat/`，程序按 `AppDomain.CurrentDomain.BaseDirectory\cat` 读取。
-
-PathCat 源码没有声明项目许可证（见其 README「源码尚未指定项目许可证」），这些图片由用户提供并授权在本项目中使用。若将来要对外分发，需要先确认素材授权。用户自行处理三花矢量形象，本轮保留现有素材及形象选择。
+此前使用的 PathCat 状态 PNG 已退出构建和分发，本机原素材保留在忽略的研究目录中。当前矢量图形为本项目绘制，并未嵌入旧位图素材。

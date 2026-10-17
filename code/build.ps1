@@ -7,6 +7,14 @@ $framework = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319'
 $compiler = Join-Path $framework 'csc.exe'
 if (!(Test-Path -LiteralPath $compiler)) { throw '.NET Framework 4.x compiler not found.' }
 New-Item -ItemType Directory -Force -Path $taskDist | Out-Null
+# Copy only versioned runtime files, never local indexes or settings.
+$taskEverythingSource = Join-Path $taskRoot 'vendor\everything'
+$taskEverythingTarget = Join-Path $taskDist 'Everything'
+New-Item -ItemType Directory -Force -Path $taskEverythingTarget | Out-Null
+foreach ($taskRuntimeFile in @('Everything.exe','Everything.lng','es.exe','Everything64.dll',
+    'LICENSE-Everything.txt','LICENSE-ES.txt','LICENSE-SDK.txt','SOURCE.json','README.md')) {
+    Copy-Item -LiteralPath (Join-Path $taskEverythingSource $taskRuntimeFile) -Destination $taskEverythingTarget -Force
+}
 $taskOutputPath=Join-Path $taskDist $taskOutputName
 $references = @('System.dll','System.Core.dll','System.Xml.dll','System.Web.Extensions.dll','System.Net.Http.dll','System.Drawing.dll','System.Windows.Forms.dll','Accessibility.dll','WPF\WindowsBase.dll','System.Xaml.dll','WPF\PresentationCore.dll','WPF\PresentationFramework.dll')
 $taskBase = @('/nologo','/platform:x64','/optimize+','/utf8output')
@@ -56,21 +64,7 @@ if(Test-Path -LiteralPath $taskSkinSource){
         Get-ChildItem -LiteralPath $taskSkin.FullName -File | Where-Object {$_.Extension -in @('.png','.json','.txt','.md')} | ForEach-Object {Copy-Item -LiteralPath $_.FullName -Destination $taskSkinTarget -Force}
     }
 }
-# Cat skins (from references/PathCat-main) are copied as-is next to the exe.
-# Keep this file ASCII-only: Windows PowerShell 5.1 reads it with the ANSI code page.
-$taskCatSource = Join-Path $taskRoot 'assets\cat'
-$taskCatTarget = Join-Path $taskDist 'cat'
-if (Test-Path -LiteralPath $taskCatSource) {
-    if (Test-Path -LiteralPath $taskCatTarget) {
-        # Mirror instead of delete-and-copy: robocopy keeps the target in sync and
-        # does not depend on the recycle bin, so it also works in restricted shells.
-        & robocopy $taskCatSource $taskCatTarget /MIR /NFL /NDL /NJH /NJS /NP | Out-Null
-        if ($LASTEXITCODE -ge 8) { throw ('Cat skin sync failed, robocopy exit ' + $LASTEXITCODE) }
-    } else {
-        New-Item -ItemType Directory -Force -Path $taskCatTarget | Out-Null
-        Get-ChildItem -LiteralPath $taskCatSource -Force | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $taskCatTarget -Recurse -Force }
-    }
-}
+# The animated cat is compiled WPF geometry; no bitmap frames are shipped.
 # Keep dist to the current build only. Locked files (a running instance) are skipped.
 $taskKeep = @($taskOutputPath,$taskMcpOutputPath,$taskTestOutputPath,$taskAiOutputPath) | ForEach-Object { [IO.Path]::GetFullPath($_) }
 Get-ChildItem -LiteralPath $taskDist -Filter '*.exe' | Where-Object { $taskKeep -notcontains $_.FullName } | ForEach-Object { $stale=$_; try { Remove-Item -LiteralPath $stale.FullName -Force -ErrorAction Stop } catch { Write-Host ('Kept '+$stale.Name+' ('+$_.Exception.Message+')') } }
