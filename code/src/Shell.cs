@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -48,6 +48,8 @@ public static class Shell {
         }catch{return path;}finally{if(link!=null&&Marshal.IsComObject(link))Marshal.ReleaseComObject(link);if(shell!=null&&Marshal.IsComObject(shell))Marshal.ReleaseComObject(shell);}
     }
     public static ImageSource Icon(string path){ImageSource cached;if(icons.TryGetValue(path,out cached))return cached;string imagePath=ShortcutIconPath(path);SHFILEINFO info;SHGetFileInfo(imagePath,0,out info,(uint)Marshal.SizeOf(typeof(SHFILEINFO)),0x100|0x0);if(info.hIcon==IntPtr.Zero)return null;try{cached=Imaging.CreateBitmapSourceFromHIcon(info.hIcon,Int32Rect.Empty,BitmapSizeOptions.FromWidthAndHeight(40,40));cached.Freeze();if(icons.Count>2000)icons.Clear();icons[path]=cached;return cached;}finally{DestroyIcon(info.hIcon);}}
+    // 快捷方式换了图标后丢掉缓存，下一次绘制才拿得到新图标。
+    public static void ForgetIcon(string path){if(!String.IsNullOrEmpty(path))icons.Remove(path);}
     public static bool IsDesktopCandidate(string cls,uint process,uint shellProcess,bool visible,bool desktopView,int width,int height){return (cls=="Progman"||cls=="WorkerW")&&process==shellProcess&&shellProcess!=0&&visible&&desktopView&&width>=640&&height>=400;}
     public static IntPtr DesktopHost(){
         uint shellProcess;GetWindowThreadProcessId(GetShellWindow(),out shellProcess);
@@ -77,7 +79,19 @@ public static class Shell {
         return true;
     }
     public static bool DesktopBindingValid(Window window,IntPtr host){IntPtr h=new WindowInteropHelper(window).Handle;return IsWindow(h)&&GetWindow(h,4)==host&&(GetWindowLongPtr(h,-16).ToInt64()&0x40000000L)==0;}
+    public static void Float(Window window){
+        IntPtr handle=new WindowInteropHelper(window).EnsureHandle();
+        SetWindowLongPtr(handle,-8,IntPtr.Zero);
+        if(GetWindow(handle,4)!=IntPtr.Zero)throw new InvalidOperationException("无法将分区从桌面层提起。");
+        SetActivatable(window,true);
+    }
+    public static bool FloatingBindingValid(Window window){
+        IntPtr handle=new WindowInteropHelper(window).Handle;
+        return IsWindow(handle)&&GetWindow(handle,4)==IntPtr.Zero;
+    }
     public static void Raise(Window window){IntPtr h=new WindowInteropHelper(window).Handle;if(h!=IntPtr.Zero)SetWindowPos(h,IntPtr.Zero,0,0,0,0,0x0013|0x0020);}
+    // 取消置顶但保留窗口和桌面挂接：置顶一组分区前先降下其它选中窗口，最后提起的那个才真的在最上面。
+    public static void Demote(Window window){IntPtr h=new WindowInteropHelper(window).Handle;if(h!=IntPtr.Zero)SetWindowPos(h,new IntPtr(-2),0,0,0,0,0x0013|0x0002|0x0020);}
     public static void SetClickThrough(Window window){IntPtr handle=new WindowInteropHelper(window).Handle;long style=GetWindowLongPtr(handle,-20).ToInt64();SetWindowLongPtr(handle,-20,new IntPtr(style|0x20L|0x08000000L|0x80L));}
     public static long ExtendedStyle(Window window){return GetWindowLongPtr(new WindowInteropHelper(window).Handle,-20).ToInt64();}
     // 桌面组件以 WS_EX_NOACTIVATE 挂接，无法接收键盘。编辑时就临时允许激活并置前，

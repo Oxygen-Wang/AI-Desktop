@@ -1,0 +1,192 @@
+{
+  "Id": "papirus",
+  "Name": "Papirus 应用",
+  "License": "GPL-3.0",
+  "Source": "https://github.com/PapirusDevelopmentTeam/papirus-icon-theme",
+  "Revision": "bf539287ef5dc18529424a02cccee76175920a6f",
+  "Entries": [
+    {
+      "Key": "excel",
+      "Icon": "excel.png",
+      "Executables": [
+        "excel.exe"
+      ],
+      "Names": [
+        "Microsoft Excel",
+        "Excel"
+      ],
+      "Extensions": [
+        ".xls",
+        ".xlsx",
+        ".csv"
+      ],
+      "Kind": ""
+    },
+    {
+      "Key": "chrome",
+      "Icon": "chrome.png",
+      "Executables": [
+        "chrome.exe"
+      ],
+      "Names": [
+        "Google Chrome",
+        "Chrome"
+      ],
+      "Extensions": [],
+      "Kind": ""
+    },
+    {
+      "Key": "document",
+      "Icon": "document.png",
+      "Executables": [],
+      "Names": [],
+      "Extensions": [
+        ".txt",
+        ".md",
+        ".pdf"
+      ],
+      "Kind": ""
+    },
+    {
+      "Key": "firefox",
+      "Icon": "firefox.png",
+      "Executables": [
+        "firefox.exe"
+      ],
+      "Names": [
+        "Firefox",
+        "Mozilla Firefox"
+      ],
+      "Extensions": [],
+      "Kind": ""
+    },
+    {
+      "Key": "cloudmusic",
+      "Icon": "cloudmusic.png",
+      "Executables": [
+        "cloudmusic.exe"
+      ],
+      "Names": [
+        "网易云音乐",
+        "NetEase Cloud Music"
+      ],
+      "Extensions": [],
+      "Kind": ""
+    },
+    {
+      "Key": "wechat",
+      "Icon": "wechat.png",
+      "Executables": [
+        "wechat.exe",
+        "weixin.exe"
+      ],
+      "Names": [
+        "WeChat",
+        "微信"
+      ],
+      "Extensions": [],
+      "Kind": ""
+    },
+    {
+      "Key": "folder",
+      "Icon": "folder.png",
+      "Executables": [],
+      "Names": [],
+      "Extensions": [],
+      "Kind": "folder"
+    },
+    {
+      "Key": "word",
+      "Icon": "word.png",
+      "Executables": [
+        "winword.exe"
+      ],
+      "Names": [
+        "Microsoft Word",
+        "Word"
+      ],
+      "Extensions": [
+        ".doc",
+        ".docx",
+        ".rtf"
+      ],
+      "Kind": ""
+    },
+    {
+      "Key": "image",
+      "Icon": "image.png",
+      "Executables": [],
+      "Names": [],
+      "Extensions": [],
+      "Kind": ""
+    },
+    {
+      "Key": "vscode",
+      "Icon": "vscode.png",
+      "Executables": [
+        "code.exe"
+      ],
+      "Names": [
+        "Visual Studio Code",
+        "VS Code"
+      ],
+      "Extensions": [],
+      "Kind": ""
+    },
+    {
+      "Key": "sevenzip",
+      "Icon": "sevenzip.png",
+      "Executables": [
+        "7zfm.exe",
+        "7zg.exe"
+      ],
+      "Names": [
+        "7-Zip",
+        "7-Zip File Manager"
+      ],
+      "Extensions": [],
+      "Kind": ""
+    },
+    {
+      "Key": "matlab",
+      "Icon": "matlab.png",
+      "Executables": [
+        "matlab.exe"
+      ],
+      "Names": [
+        "MATLAB"
+      ],
+      "Extensions": [],
+      "Kind": ""
+    },
+    {
+      "Key": "powerpoint",
+      "Icon": "powerpoint.png",
+      "Executables": [
+        "powerpnt.exe"
+      ],
+      "Names": [
+        "Microsoft PowerPoint",
+        "PowerPoint"
+      ],
+      "Extensions": [
+        ".ppt",
+        ".pptx"
+      ],
+      "Kind": ""
+    },
+    {
+      "Key": "edge",
+      "Icon": "edge.png",
+      "Executables": [
+        "msedge.exe"
+      ],
+      "Names": [
+        "Microsoft Edge",
+        "Edge"
+      ],
+      "Extensions": [],
+      "Kind": ""
+    }
+  ]
+}

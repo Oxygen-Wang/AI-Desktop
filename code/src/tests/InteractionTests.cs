@@ -1,6 +1,8 @@
 using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Threading;
@@ -8,6 +10,7 @@ using Forms=System.Windows.Forms;
 
 namespace QiDesk {
 public static class InteractionTests {
+    [StructLayout(LayoutKind.Sequential)] struct TestMouseHookData {public DesktopGesture.NativePoint Point;public uint Data,Flags,Time;public IntPtr Extra;}
     public static void Pure(Action<bool,string> check){
         IntPtr desktop=new IntPtr(1),folder=new IntPtr(2);var pair=new ClickPair();
         check(!pair.Add(100,30,40,desktop,true,500,4,4)&&pair.Add(200,32,42,desktop,true,500,4,4),"two nearby desktop clicks form one pair");
@@ -17,8 +20,8 @@ public static class InteractionTests {
         pair.Reset();pair.Add(100,30,40,desktop,true,500,4,4);pair.Add(130,30,40,folder,false,500,4,4);check(!pair.Add(200,30,40,desktop,true,500,4,4),"intervening application click resets desktop gesture");
         pair.Reset();pair.Add(100,30,40,desktop,true,500,4,4);pair.Move(80,40,4,4);check(!pair.Add(200,30,40,desktop,true,500,4,4),"mouse drag cancels pending double click");
         pair.Reset();pair.Add(UInt32.MaxValue-100,30,40,desktop,true,500,4,4);check(pair.Add(80,30,40,desktop,true,500,4,4),"double click remains valid across native timestamp rollover");
-        var swipe=new DualButtonSwipe();swipe.Begin(100,100,true);swipe.Approve(true);check(swipe.End(240,115)==1,"two-button horizontal swipe navigates right");
-        swipe.Begin(240,100,true);swipe.Approve(true);check(swipe.End(95,110)==-1,"two-button horizontal swipe navigates left");
+        var swipe=new MiddleButtonSwipe();swipe.Begin(100,100,true);swipe.Approve(true);check(swipe.End(240,115)==1,"middle-button horizontal swipe navigates right");
+        swipe.Begin(240,100,true);swipe.Approve(true);check(swipe.End(95,110)==-1,"middle-button horizontal swipe navigates left");
         swipe.Begin(100,100,true);swipe.Approve(true);check(swipe.End(175,102)==0,"short two-button drag does not change page");
         swipe.Begin(100,100,true);swipe.Approve(true);check(swipe.End(240,260)==0,"vertical two-button drag does not change page");
         swipe.Begin(100,100,true);check(swipe.End(240,100)==0,"unapproved desktop position cannot trigger page navigation");
@@ -47,7 +50,12 @@ public static class InteractionTests {
             check(DesktopGesture.BlankListPoint(list.Handle,blank.X,blank.Y),"accessibility hit test recognizes empty list view space");
             form.Close();
         }
-        using(var gesture=new DesktopGesture(Dispatcher.CurrentDispatcher,delegate{})){gesture.Start(desktop);check(gesture.Active,"native desktop gesture hook installs on dedicated thread");gesture.Dispose();check(!gesture.Active,"native desktop gesture hook stops cleanly");}
+        using(var gesture=new DesktopGesture(Dispatcher.CurrentDispatcher,delegate{})){gesture.Start(desktop);check(gesture.Active,"native desktop gesture hook installs on dedicated thread");int uiThread=Thread.CurrentThread.ManagedThreadId,callbackThread=0;gesture.SwipeStart=delegate{callbackThread=Thread.CurrentThread.ManagedThreadId;};typeof(DesktopGesture).GetMethod("ReportSwipeStart",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic).Invoke(gesture,null);for(int i=0;i<20&&callbackThread==0;i++){Pump();Thread.Sleep(10);}check(callbackThread==uiThread,"desktop swipe animation runs on the WPF UI thread");gesture.Dispose();check(!gesture.Active,"native desktop gesture hook stops cleanly");}
+        var fixture=new Forms.Form(){Width=220,Height=150,Left=200,Top=200,TopMost=true,FormBorderStyle=Forms.FormBorderStyle.None,BackColor=System.Drawing.Color.DarkSlateGray};fixture.Show();Forms.Application.DoEvents();IntPtr fixtureHandle=fixture.Handle;
+        var originalCursor=Forms.Cursor.Position;
+        try{var position=fixture.PointToScreen(new System.Drawing.Point(60,65));Forms.Cursor.Position=position;fixture.Activate();Forms.Application.DoEvents();check(DesktopGesture.TargetAt(new DesktopGesture.NativePoint(position.X,position.Y))==fixtureHandle,"chord fixture is the native hit target");
+            using(var gesture=new DesktopGesture(Dispatcher.CurrentDispatcher,delegate{},pageNavigation:delegate{},testSurface:h=>h==fixtureHandle,testBlank:h=>h==fixtureHandle)){gesture.Start(desktop);var callback=typeof(DesktopGesture).GetMethod("Callback",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic);IntPtr data=Marshal.AllocHGlobal(Marshal.SizeOf(typeof(TestMouseHookData)));try{Marshal.StructureToPtr(new TestMouseHookData(){Point=new DesktopGesture.NativePoint(position.X,position.Y),Time=100},data,false);Func<int,IntPtr> dispatch=kind=>(IntPtr)callback.Invoke(gesture,new object[]{0,new IntPtr(kind),data});check(dispatch(0x207)==new IntPtr(1)&&dispatch(0x208)==new IntPtr(1),"native middle-button gesture captures the desktop press and release");check(dispatch(0x201)==IntPtr.Zero&&dispatch(0x202)==IntPtr.Zero&&dispatch(0x204)==IntPtr.Zero&&dispatch(0x205)==IntPtr.Zero,"left and right clicks pass through without chord filtering");}finally{Marshal.FreeHGlobal(data);}}}
+        finally{Forms.Cursor.Position=originalCursor;fixture.Close();}
     }
     public static int OwnerProbe(string[] args){
         if(args.Length!=3||!args[2].StartsWith("Local\\QiDeskTestIcons-"))return 2;
@@ -57,3 +65,4 @@ public static class InteractionTests {
     static void Pump(){var frame=new DispatcherFrame();Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle,new Action(delegate{frame.Continue=false;}));Dispatcher.PushFrame(frame);}
 }
 }
+

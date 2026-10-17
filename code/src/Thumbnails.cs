@@ -34,6 +34,11 @@ public static class Thumbnails {
     static readonly BlockingCollection<Job> queue=new BlockingCollection<Job>(512);
     static long bytes;static int active;static bool started;
     static readonly DependencyProperty BindingProperty=DependencyProperty.RegisterAttached("ThumbnailBinding",typeof(Binding),typeof(Thumbnails),new PropertyMetadata(null));
+    public static void UseStatic(Image image,ImageSource source){
+        // Clear the old request identity so an in-flight Shell thumbnail cannot
+        // overwrite an explicitly chosen theme icon after the view changes.
+        image.SetValue(BindingProperty,null);image.Loaded-=Loaded;image.Source=source;
+    }
     public static string Revision(string path){try{var file=new FileInfo(path);return file.LastWriteTimeUtc.Ticks+":"+(file.Exists?file.Length:0);}catch{return "unavailable";}}
     public static bool IsPicture(string path){return new[]{".png",".jpg",".jpeg",".bmp",".gif",".tif",".tiff",".webp",".heic",".avif",".ico"}.Contains(Path.GetExtension(path).ToLowerInvariant());}
     public static string Key(string path,int size){return Path.GetFullPath(path)+"|"+size+"|"+Revision(path);}

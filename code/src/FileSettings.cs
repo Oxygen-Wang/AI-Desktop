@@ -14,7 +14,7 @@ public partial class ManagerWindow {
     string ignoreScopeId="";
     PanelTab ignorePanelTab;
     public void IgnoreItem(string path,Group group){
-        if(group!=null){group=controller.Store.Data.Groups.FirstOrDefault(g=>g.Id==group.Id);if(group==null)return;}
+        if(group!=null){group=PartitionIgnores.Owner(controller.Store.Data,controller.Store.Data.Groups.FirstOrDefault(g=>g.Id==group.Id));if(group==null)return;}
         var rules=group==null?controller.Store.Data.IgnoreRules:group.IgnoreRules;
         if(rules.Any(r=>r.Kind=="路径"&&String.Equals(IgnoreRule.Canonical(r.Pattern),IgnoreRule.Canonical(path),StringComparison.OrdinalIgnoreCase)))return;
         if(rules.Count>=500){Ui.Info("当前范围规则已达到上限。",this);return;}controller.Store.Checkpoint();rules.Add(new IgnoreRule(){Kind="路径",Pattern=Path.GetFullPath(path),IncludeChildren=Directory.Exists(path)});SaveSettings(false);SetStatus("已"+(group==null?"全局":"在此分区")+"忽略“"+Path.GetFileName(path)+"”；在忽略规则中可恢复。");
@@ -38,21 +38,21 @@ public partial class ManagerWindow {
     public void DeleteTabGroup(Group group){if(group==null)return;DeleteGroup(group);if(workspaceSearch!=null)workspaceSearch.ActivateTab("全部");}
     public void ShowDetails(Group group,string folder){ShowDetails(group,folder,null);}
     public void ShowDetails(Group group,string folder,string selected){new FileDetailsWindow(controller,group,folder,this,selected).Show();}
-    public void ShowIgnoreRules(Group group,PanelTab tab=null){ignoreScopeId=group==null?"":group.Id;ignorePanelTab=tab;Show();WindowState=WindowState.Normal;Activate();ShowSettingsPage("忽略文件");}
+    public void ShowIgnoreRules(Group group,PanelTab tab=null){group=PartitionIgnores.Owner(controller.Store.Data,group);ignoreScopeId=group==null?"":group.Id;ignorePanelTab=tab;Show();WindowState=WindowState.Normal;Activate();ShowSettingsPage("忽略文件");}
     StackPanel IgnorePage(){
         var p=SettingsPage("忽略文件","隐藏匹配的文件和文件夹；全局规则用于所有分区，局部规则仅用于选中的分区。");
-        var groups=controller.Store.Data.Groups.ToArray();var scope=Choice(p,"编辑的分区",new[]{"选择分区"}.Concat(groups.Select(g=>g.Name)),Array.FindIndex(groups,g=>g.Id==ignoreScopeId)+1);var body=new StackPanel();p.Children.Add(body);
+        var groups=controller.Store.Data.Groups.Where(g=>String.IsNullOrEmpty(g.HostGroupId)).ToArray();var scope=Choice(p,"编辑范围",new[]{"全局规则"}.Concat(groups.Select(g=>g.Name)),Array.FindIndex(groups,g=>g.Id==ignoreScopeId)+1);var body=new StackPanel();p.Children.Add(body);
         Action rebuild=null;rebuild=delegate{
             body.Children.Clear();Group group=scope.SelectedIndex<=0?null:groups[scope.SelectedIndex-1];
-            IgnoreRuleRows(body,"全局规则",controller.Store.Data.IgnoreRules,rebuild);
-            EditableIgnoreFileRows(body,null,rebuild);
+            ignoreScopeId=group==null?"":group.Id;
+            if(group==null){IgnoreRuleRows(body,"全局规则",controller.Store.Data.IgnoreRules,rebuild);EditableIgnoreFileRows(body,null,rebuild);}
+            else InheritedIgnoreRows(body,group,rebuild);
             if(group!=null){
-                IgnoreRuleRows(body,"「"+group.Name+"」的规则",group.IgnoreRules,rebuild);
-                foreach(var folder in group.Folders.ToArray()){
-                    List<IgnoreRule> local;if(!group.FolderIgnoreRules.TryGetValue(folder,out local)){local=new List<IgnoreRule>();group.FolderIgnoreRules[folder]=local;}
-                    IgnoreRuleRows(body,"文件夹标签 · "+FilePresentation.FolderName(folder),local,rebuild);
+                foreach(var member in PartitionIgnores.Members(controller.Store.Data,group)){
+                    if(member==group||member.IgnoreRules.Count>0)IgnoreRuleRows(body,member==group?"此分区规则（所有标签共用）":"已合并的规则 · "+member.Name,member.IgnoreRules,rebuild);
+                    foreach(var entry in member.FolderIgnoreRules.Where(f=>f.Value.Count>0))IgnoreRuleRows(body,"限定来源 · "+FilePresentation.FolderName(entry.Key),entry.Value,rebuild);
+                    EditableIgnoreFileRows(body,member,rebuild,member==group);
                 }
-                EditableIgnoreFileRows(body,group,rebuild);
             }
             if(ignorePanelTab!=null&&ignorePanelTab.IsFolder){
                 IgnoreRuleRows(body,"面板标签 · "+FilePresentation.FolderName(ignorePanelTab.Folder),ignorePanelTab.IgnoreRules,rebuild);
@@ -63,9 +63,18 @@ public partial class ManagerWindow {
     void IgnoreRuleRows(Panel body,string title,List<IgnoreRule> rules,Action rebuild){
         Section(body,title);
         var add=new DockPanel(){Margin=new Thickness(0,2,0,5)};
-        var addButton=Ui.Button("＋ 添加",delegate{});DockPanel.SetDock(addButton,Dock.Right);add.Children.Add(addButton);
-        var pattern=Ui.Input("");pattern.ToolTip="输入文件名或通配符，例如 *.tmp";add.Children.Add(pattern);
-        addButton.Click+=delegate{try{var rule=new IgnoreRule(){Pattern=pattern.Text.Trim()};IgnoreRule.Validate(new List<IgnoreRule>{rule});if(rules.Count>=500)throw new InvalidDataException("当前范围规则已达到上限。");controller.Store.Checkpoint();rules.Add(rule);SaveSettings(false);rebuild();}catch(Exception ex){Ui.Info(ex.Message,this);}};
+        var pattern=Ui.Input("");pattern.ToolTip="输入文件名或通配符；可用逗号、分号、空格分隔多条规则";
+        var addButton=Ui.Button("＋ 添加",delegate{
+            try{
+                var patterns=IgnoreRuleInput.Split(pattern.Text);
+                if(patterns.Length==0)throw new InvalidDataException("请输入至少一条忽略规则。");
+                var pending=patterns.Select(value=>new IgnoreRule(){Kind="Git",Pattern=value}).ToList();
+                IgnoreRule.Validate(pending);
+                if(rules.Count+pending.Count>500)throw new InvalidDataException("当前范围规则已达到上限。");
+                controller.Store.Checkpoint();rules.AddRange(pending);SaveSettings(false);rebuild();
+            }catch(Exception ex){Ui.Info(ex.Message,this);}
+        });
+        DockPanel.SetDock(addButton,Dock.Right);add.Children.Add(addButton);add.Children.Add(pattern);
         body.Children.Add(add);
         foreach(var rule in rules.ToArray()){
             var current=rule;var row=new DockPanel(){Margin=new Thickness(0,1,0,3)};

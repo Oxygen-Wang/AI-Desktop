@@ -28,20 +28,21 @@ public partial class ManagerWindow : Window {
         Icon=AppIcon.Image;InitializeShell();
         Closing+=delegate(object s,System.ComponentModel.CancelEventArgs e){if(!quitting&&tray!=null){e.Cancel=true;Hide();}};
         PreviewKeyDown+=delegate(object s,System.Windows.Input.KeyEventArgs e){var focus=System.Windows.Input.Keyboard.FocusedElement;if(focus is TextBox||focus is ComboBox)return;var modifiers=System.Windows.Input.Keyboard.Modifiers;if(modifiers!=System.Windows.Input.ModifierKeys.Control)return;if(e.Key==System.Windows.Input.Key.Left||e.Key==System.Windows.Input.Key.Right){controller.Page(e.Key==System.Windows.Input.Key.Left?-1:1);e.Handled=true;}};
-        Closed+=delegate{CloseTutorial();CloseWorkspaceSearch();if(workspacePanel!=null){workspacePanel.Close();workspacePanel=null;}if(pet!=null){pet.Close();pet=null;}if(shellActions!=null)shellActions.Dispose();controller.CloseMcp();controller.CloseProjectDetection();controller.Stop();if(hwnd!=null){Shell.UnregisterHotKey(hwnd.Handle,1);Shell.UnregisterHotKey(hwnd.Handle,2);Shell.UnregisterHotKey(hwnd.Handle,3);Shell.UnregisterHotKey(hwnd.Handle,5);Shell.UnregisterHotKey(hwnd.Handle,6);}if(tray!=null)tray.Dispose();};
+        Closed+=delegate{CloseQuickSearch();CloseTutorial();CloseWorkspaceSearch();if(workspacePanel!=null){workspacePanel.Close();workspacePanel=null;}if(pet!=null){pet.Close();pet=null;}if(shellActions!=null)shellActions.Dispose();controller.CloseMcp();controller.CloseProjectDetection();controller.Stop();if(hwnd!=null){Shell.UnregisterHotKey(hwnd.Handle,1);Shell.UnregisterHotKey(hwnd.Handle,2);Shell.UnregisterHotKey(hwnd.Handle,3);Shell.UnregisterHotKey(hwnd.Handle,5);Shell.UnregisterHotKey(hwnd.Handle,6);}if(tray!=null)tray.Dispose();};
         Closed+=delegate{if(hwnd!=null)Shell.UnregisterHotKey(hwnd.Handle,7);};
         Refresh();
     }
     public void EnableTrayAndHotkeys(){
+        controller.MigrateWorkspaceTabs();
         try{shellActions=new DesktopShellActions(controller);DesktopShellActions.Register(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName);}catch(Exception ex){SetStatus("桌面右键扩展未启用："+ex.Message);}
         hwnd=HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);hwnd.AddHook(Hook);bool workspaceKey=Shell.RegisterHotKey(hwnd.Handle,5,1|0x4000,0x20);if(!workspaceKey)SetStatus("Alt＋Space 已被占用，可从托盘打开工作区。");
-        Shell.RegisterHotKey(hwnd.Handle,7,3|0x4000,0x08);
+        Shell.RegisterHotKey(hwnd.Handle,7,3|0x4000,0x08);UpdateQuickSearchHotkey();
         FileActivity.Initialize(controller.Store.Root);bool hide=Shell.RegisterHotKey(hwnd.Handle,1,3|0x4000,0x44);bool pagePrev=Shell.RegisterHotKey(hwnd.Handle,2,3|0x4000,0x25);bool pageNext=Shell.RegisterHotKey(hwnd.Handle,3,3|0x4000,0x27);bool petKey=Shell.RegisterHotKey(hwnd.Handle,6,3|0x4000,0x4D);
         if(!hide)SetStatus("Ctrl+Alt+D 已被其他程序占用，可使用托盘菜单隐藏/显示。");
         else if(!pagePrev||!pageNext)SetStatus("Ctrl+Alt+方向键已被其他程序占用，无法切换页面。");
         else if(!petKey)SetStatus("Ctrl＋Alt＋M 已被其他程序占用，可从右键菜单或托盘隐藏小猫。");
         tray=new System.Windows.Forms.NotifyIcon(){Icon=System.Drawing.Icon.ExtractAssociatedIcon(System.Reflection.Assembly.GetExecutingAssembly().Location),Text="栖桌 · AI Desktop",Visible=true};
-        var menu=new System.Windows.Forms.ContextMenuStrip();menu.Items.Add("打开管理面板",null,delegate{Show();WindowState=WindowState.Normal;Activate();});menu.Items.Add("隐藏 / 显示分组",null,delegate{controller.ToggleHidden();});menu.Items.Add("工作区面板 · Alt＋Space",null,delegate{ShowWorkspacePanel(false);pet_Touch();});menu.Items.Add("工作区搜索",null,delegate{ShowWorkspaceSearch();});menu.Items.Add("搜索全盘文件",null,delegate{ShowWorkspaceSearch(false,true);});menu.Items.Add("显示 / 隐藏小猫",null,delegate{TogglePet();});menu.Items.Add("添加桌面组件",null,delegate{ShowComponentPicker();});menu.Items.Add("使用教程",null,delegate{ShowTutorial();});menu.Items.Add("完全停止并恢复 Windows 桌面",null,delegate{Quit();});tray.ContextMenuStrip=menu;tray.DoubleClick+=delegate{Show();Activate();};
+        var menu=new System.Windows.Forms.ContextMenuStrip();menu.Items.Add("打开管理面板",null,delegate{Show();WindowState=WindowState.Normal;Activate();});menu.Items.Add("隐藏 / 显示分组",null,delegate{controller.ToggleHidden();});menu.Items.Add("工作区面板 · Alt＋Space",null,delegate{ShowWorkspacePanel(false);pet_Touch();});menu.Items.Add("工作区搜索",null,delegate{ShowWorkspaceSearch();});menu.Items.Add("搜索全盘文件",null,delegate{ShowQuickSearch();});menu.Items.Add("显示 / 隐藏小猫",null,delegate{TogglePet();});menu.Items.Add("添加桌面组件",null,delegate{ShowComponentPicker();});menu.Items.Add("使用教程",null,delegate{ShowTutorial();});menu.Items.Add("完全停止并恢复 Windows 桌面",null,delegate{Quit();});tray.ContextMenuStrip=menu;tray.DoubleClick+=delegate{Show();Activate();};
         menu.Items.RemoveAt(2);
         menu.Items.Insert(2,new System.Windows.Forms.ToolStripMenuItem("工作区 · Alt＋Space",null,delegate{ToggleWorkspaceHotkey();pet_Touch();}));
         menu.Items.Insert(3,new System.Windows.Forms.ToolStripMenuItem("取消所有工作区选择 · Ctrl＋Alt＋Backspace",null,delegate{controller.ClearGroupSelection();}));
@@ -58,13 +59,26 @@ public partial class ManagerWindow : Window {
     }
     public void NotifyPanelVisibility(bool visible){if(pet!=null)pet.NotifyPanelVisibility(visible);}
     public void OpenWorkspaceWithFolders(string[] folders){
-        var panel=ShowWorkspacePanel(false);
-        if(panel!=null&&folders!=null&&folders.Length>0)panel.AddFolders(folders);
+        if(folders==null)return;
+        controller.Store.Checkpoint();
+        foreach(string folder in folders.Where(System.IO.Directory.Exists).Take(60)){
+            string path=System.IO.Path.GetFullPath(folder);
+            var group=controller.Store.Data.Groups.FirstOrDefault(g=>String.Equals(IgnoreRule.Canonical(g.Folder),IgnoreRule.Canonical(path),StringComparison.OrdinalIgnoreCase));
+            if(group==null){
+                group=new Group(){Name=FilePresentation.FolderName(path),Kind="文件夹",Folder=path,Page=controller.Store.Data.Page,X=80,Y=80,Width=560,Height=400};
+                group.Folders.Add(path);controller.Store.Data.Groups.Add(group);
+            }
+            controller.SelectedGroups.Add(String.IsNullOrEmpty(group.HostGroupId)?group.Id:group.HostGroupId);
+        }
+        controller.Store.Data.SelectedWorkspaceGroups=controller.SelectedGroups.ToList();
+        controller.SaveAndRefresh();
+        if(!controller.Running)controller.Start(true);
+        controller.ToggleSelectedWorkspace();
     }
     public void ShowWorkspacePanelWithGroups(string[] groupIds){
         if(groupIds==null||groupIds.Length==0)return;
-        var panel=ShowWorkspacePanel(false);
-        if(panel!=null)panel.OpenGroups(groupIds);
+        foreach(string id in groupIds){var group=controller.Store.Data.Groups.FirstOrDefault(g=>g.Id==id);if(group!=null&&!controller.SelectedGroups.Contains(id))controller.ToggleGroupSelection(group);}
+        controller.ToggleSelectedWorkspace();
     }
     // 面板显示某个分区时，先把桌面上那一份藏起来，避免同一个分区出现两次。
     readonly HashSet<string> panelHiddenGroups=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -85,6 +99,10 @@ public partial class ManagerWindow : Window {
         if(window==null||controller.Hidden)return;
         try{window.Show();}catch{}
     }
+    // 面板显示期间接管的桌面分区：置顶时应保持面板显示，不要在这里再复制一份桌面窗口。
+    public bool PanelHoldsDesktopCopy(string groupId){
+        return !String.IsNullOrEmpty(groupId)&&panelHiddenGroups.Contains(groupId)&&workspacePanel!=null&&workspacePanel.IsVisible;
+    }
     public void RestoreDesktopCopies(string[] groupIds){
         if(groupIds==null){foreach(string id in panelHiddenGroups.ToArray())RestoreDesktopCopy(id);return;}
         foreach(string id in groupIds)RestoreDesktopCopy(id);
@@ -97,8 +115,18 @@ public partial class ManagerWindow : Window {
         }
         if(controller.Store.Data.PetVisible)pet.Show();else pet.Hide();
     }
-    void ToggleWorkspaceHotkey(){if(controller.Running&&controller.Windows.Any(window=>controller.SelectedGroups.Contains(window.Group.Id)))controller.ToggleSelectedWorkspace();else ShowWorkspacePanel(true);}
-    IntPtr Hook(IntPtr h,int msg,IntPtr w,IntPtr l,ref bool handled){if(msg==0x312){handled=true;switch(w.ToInt32()){case 1:controller.ToggleHidden();break;case 2:controller.Page(-1);break;case 3:controller.Page(1);break;case 5:ToggleWorkspaceHotkey();break;case 6:TogglePet();break;case 7:controller.ClearGroupSelection();break;}}return IntPtr.Zero;}
+    // Alt＋Space、托盘菜单和小猫点击共用同一个入口：选中的分区在前台与桌面层之间切换，始终保持可见。
+    public void ToggleWorkspaceFromPet(){ToggleWorkspaceHotkey();}
+    public bool DesktopWorkspaceVisible{get{return controller.WorkspaceVisible;}}
+    public int SelectedWorkspaceCount{get{return controller.SelectedGroups.Count;}}
+    void ToggleWorkspaceHotkey(){
+        if(WorkspacePanelVisible)workspacePanel.Dismiss();
+        bool migrated=controller.MigrateWorkspaceTabs();
+        if(!controller.Running){SetStatus("请先启动桌面模式，再选择需要唤起的分区。");return;}
+        if(migrated)controller.Rebuild();
+        controller.ToggleSelectedWorkspace();
+    }
+    IntPtr Hook(IntPtr h,int msg,IntPtr w,IntPtr l,ref bool handled){if(msg==0x312){handled=true;switch(w.ToInt32()){case 1:controller.ToggleHidden();break;case 2:controller.Page(-1);break;case 3:controller.Page(1);break;case 5:ToggleWorkspaceHotkey();break;case 6:TogglePet();break;case 7:controller.ClearGroupSelection();break;case 8:ShowQuickSearch(true);break;}}return IntPtr.Zero;}
     public void Quit(){quitting=true;controller.Stop();try{controller.Store.Save();}catch{}if(shellActions!=null)try{DesktopShellActions.Unregister();}catch(Exception ex){SetStatus("桌面右键入口清理未完成："+ex.Message);}Close();}
     public void SetStatus(string text){status.Text=text;}
     public void Refresh(){
@@ -125,15 +153,19 @@ public partial class ManagerWindow : Window {
     }
     Border Card(Group g){
         var p=new StackPanel();var top=new Grid();top.ColumnDefinitions.Add(new ColumnDefinition());top.ColumnDefinitions.Add(new ColumnDefinition(){Width=GridLength.Auto});
+        p.ContextMenu=new ContextMenu();
+        p.ContextMenu.Items.Add(Ui.Menu("在桌面显示分区",delegate{controller.ShowDesktopGroup(g);}));
+        p.ContextMenu.Items.Add(Ui.Menu(controller.SelectedGroups.Contains(g.Id)?"取消工作区选择":"选择为工作区",delegate{controller.ToggleGroupSelection(PartitionIgnores.Owner(controller.Store.Data,g));}));
+        p.ContextMenu.Items.Add(Ui.Menu("规则与自动归类…",delegate{EditPartitionRules(g);}));
         var label=Ui.Text(g.Name,17,Ui.Ink);label.FontWeight=FontWeights.SemiBold;top.Children.Add(label);var actions=new StackPanel(){Orientation=Orientation.Horizontal};var edit=Ui.Button("···",delegate{EditGroup(g);});edit.Padding=new Thickness(7,1,7,1);actions.Children.Add(edit);var remove=Ui.Button("×",delegate{DeleteGroup(g);});remove.ToolTip="删除分区，项目恢复到桌面";remove.Padding=new Thickness(7,1,7,1);actions.Children.Add(remove);Grid.SetColumn(actions,1);top.Children.Add(actions);p.Children.Add(top);
         string[] items=controller.Store.Items(g,controller.Search).ToArray();p.Children.Add(Ui.Text((String.IsNullOrEmpty(g.Folder)?"桌面分组":"文件夹映射")+" · "+items.Length+" 个项目",12,Ui.Muted));
         var preview=new WrapPanel(){Margin=new Thickness(0,12,0,12)};foreach(string path in items.Take(6)){
-            var item=new StackPanel(){Width=68,Margin=new Thickness(0,0,8,8)};var miniIcon=new Image(){Source=Shell.Icon(path),Width=26,Height=26,Stretch=Stretch.Uniform};RenderOptions.SetBitmapScalingMode(miniIcon,BitmapScalingMode.HighQuality);item.Children.Add(new Border(){Width=36,Height=36,CornerRadius=new CornerRadius(10),Background=new LinearGradientBrush(Color.FromRgb(43,63,87),Color.FromRgb(23,38,58),90),BorderBrush=Ui.Brush(g.Color),BorderThickness=new Thickness(1),Child=miniIcon,Margin=new Thickness(0,0,0,5)});item.Children.Add(new TextBlock(){Text=FilePresentation.DisplayName(path,controller.Store.Data.ShowFileExtensions),FontSize=10,Foreground=Ui.Muted,TextTrimming=TextTrimming.CharacterEllipsis,TextAlignment=TextAlignment.Center});preview.Children.Add(item);
+            var item=new StackPanel(){Width=68,Margin=new Thickness(0,0,8,8)};var miniIcon=new Image(){Source=FileIconPresentation.Themed(path,g,controller.Store.Data,64)??Shell.Icon(path),Width=26,Height=26,Stretch=Stretch.Uniform};RenderOptions.SetBitmapScalingMode(miniIcon,BitmapScalingMode.HighQuality);item.Children.Add(new Border(){Width=36,Height=36,CornerRadius=new CornerRadius(10),Background=AppIconSkins.IsPack(g.IconSkin)?(Brush)Brushes.Transparent:new LinearGradientBrush(Color.FromRgb(43,63,87),Color.FromRgb(23,38,58),90),BorderBrush=Ui.Brush(g.Color),BorderThickness=new Thickness(AppIconSkins.IsPack(g.IconSkin)?0:1),Child=miniIcon,Margin=new Thickness(0,0,0,5)});item.Children.Add(new TextBlock(){Text=FilePresentation.DisplayName(path,controller.Store.Data.ShowFileExtensions),FontSize=10,Foreground=Ui.Muted,TextTrimming=TextTrimming.CharacterEllipsis,TextAlignment=TextAlignment.Center});preview.Children.Add(item);
         }p.Children.Add(preview);if(items.Length==0)p.Children.Add(Ui.Text("准备好接收你的项目",12,Ui.Muted));
         var border=new Border(){Width=250,MinHeight=204,Padding=new Thickness(16),Margin=new Thickness(0,0,16,16),CornerRadius=new CornerRadius(14),Background=Ui.Surface,BorderBrush=Ui.Brush(g.Color),BorderThickness=new Thickness(1),Child=p,Effect=Ui.Shadow(5,16,.16),AllowDrop=true};
         border.DragOver+=delegate(object s,DragEventArgs e){e.Effects=!String.IsNullOrEmpty(g.Folder)?DragTransfer.Effect(e,g.Folder):Functions.DragPaths(e.Data)!=null?DragDropEffects.Link:DragDropEffects.None;e.Handled=true;};border.Drop+=delegate(object s,DragEventArgs e){if(!String.IsNullOrEmpty(g.Folder)){DragTransfer.Drop(this,controller,e,g.Folder,Refresh);return;}var paths=Functions.DragPaths(e.Data);if(paths==null)return;controller.Store.Checkpoint();foreach(string path in paths)controller.Store.Assign(path,g);controller.SaveAndRefresh();};return border;
     }
-    void DeleteGroup(Group g){
+    public void DeleteGroup(Group g){
         controller.Store.Checkpoint();var groups=controller.Store.Data.Groups;var removed=groups.Where(x=>x==g||x.HostGroupId==g.Id).ToArray();
         foreach(var item in removed)groups.Remove(item);
         foreach(var item in removed)controller.SelectedGroups.Remove(item.Id);
@@ -153,7 +185,8 @@ public partial class ManagerWindow : Window {
         p.Children.Add(Ui.Text("边框与右下角手柄不透明度",12,Ui.Muted));var borderOpacity=new Slider(){Minimum=0,Maximum=1,Value=g.BorderOpacity,Margin=new Thickness(0,0,0,16)};p.Children.Add(borderOpacity);
         var locked=new CheckBox(){Content="锁定位置和尺寸",IsChecked=g.Locked,Margin=new Thickness(0,0,0,12)};p.Children.Add(locked);var keep=new CheckBox(){Content="全局隐藏时保留此分组",IsChecked=g.ExcludeFromHide,Margin=new Thickness(0,0,0,16)};p.Children.Add(keep);
         p.Children.Add(Ui.Button("保存",delegate{int n;if(!Int32.TryParse(pageInput.Text,out n)||n<1||n>20){Ui.Info("页面编号应为 1 到 20。",w);return;}try{new BrushConverter().ConvertFromString(color.Text);}catch{Ui.Info("颜色格式不正确。",w);return;}controller.Store.Checkpoint();g.Name=name.Text.Trim();g.Color=color.Text.Trim();g.CornerStyle=Convert.ToString(corners.SelectedItem);g.Page=n-1;controller.Store.Data.Pages=Math.Max(n,controller.Store.Data.Pages);g.Sort=Convert.ToString(sort.SelectedItem);g.BackgroundOpacity=opacity.Value;g.BorderOpacity=borderOpacity.Value;g.Locked=locked.IsChecked==true;g.ExcludeFromHide=keep.IsChecked==true;controller.SaveAndRefresh();w.Close();}));
-        p.Children.Add(Ui.Button("移除这个分组",delegate{DeleteGroup(g);w.Close();}));w.Content=new ScrollViewer(){Content=p,VerticalScrollBarVisibility=ScrollBarVisibility.Auto};w.ShowDialog();
+        p.Children.Add(Ui.Button("移除这个分组",delegate{DeleteGroup(g);w.Close();}));
+        p.Children.Add(Ui.Button("规则与自动归类…",delegate{w.Close();EditPartitionRules(g);}));w.Content=new ScrollViewer(){Content=p,VerticalScrollBarVisibility=ScrollBarVisibility.Auto};w.ShowDialog();
     }
     void Import(){try{string directory=Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..","research","evidence"));if(!Directory.Exists(directory))directory=Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);var d=new OpenFileDialog(){Title="选择只读导出的 Fences 配置",Filter="Fences 导出 JSON|*.json",InitialDirectory=directory};string exported=Path.Combine(directory,"fences-config.json");if(File.Exists(exported))d.FileName=exported;if(d.ShowDialog(this)!=true)return;controller.ImportFences(d.FileName);SetStatus("已导入布局；可用撤销恢复之前的分组。导入后的自动规则默认关闭。");}catch(Exception ex){Ui.Info("导入失败："+ex.Message,this);}}
     void Snapshots(){var w=Ui.Dialog("布局快照",620,420,this);var p=new StackPanel(){Margin=new Thickness(22)};p.Children.Add(Ui.Text("保存并恢复分组、归属与窗口布局",17,Ui.Ink));var list=new ListBox(){Height=240,Background=Ui.Surface,Foreground=Ui.Ink,ItemsSource=Directory.GetFiles(controller.Store.SnapshotRoot,"*.json").OrderByDescending(x=>x).Select(Path.GetFileName)};p.Children.Add(list);var actions=new WrapPanel(){Margin=new Thickness(0,16,0,0)};actions.Children.Add(Ui.Button("保存当前布局",delegate{controller.Store.Snapshot();w.Close();SetStatus("布局快照已保存。");}));actions.Children.Add(Ui.Button("恢复所选布局",delegate{if(list.SelectedItem==null)return;try{controller.Store.Restore(Path.Combine(controller.Store.SnapshotRoot,list.SelectedItem.ToString()));controller.SaveAndRefresh();w.Close();}catch(Exception ex){Ui.Info(ex.Message,w);}}));p.Children.Add(actions);w.Content=p;w.ShowDialog();}

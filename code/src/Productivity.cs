@@ -1,10 +1,11 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -22,7 +23,19 @@ public static class FileActivity {
 public sealed class SearchResult {public string Path {get;set;}public long Bytes {get;set;}public DateTime Changed {get;set;}public string Name {get{return System.IO.Path.GetFileName(Path.TrimEnd('\\'));}}public string Location {get{return FilePresentation.FolderName(System.IO.Path.GetDirectoryName(Path.TrimEnd('\\')));}}}
 public sealed class SearchResponse {public string Provider {get;set;}public string Message {get;set;}public SearchResult[] Items {get;set;}}
 public static class FileSearch {
-    public static string Executable(State s){if(File.Exists(s.EverythingPath))return s.EverythingPath;string known=System.IO.Path.GetFullPath(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..","vendor","Everything-1.4.1.1032.x64","everything.exe"));if(File.Exists(known))return known;foreach(string folder in new[]{Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)}){string p=System.IO.Path.Combine(folder,"Everything","Everything.exe");if(File.Exists(p))return p;}return "";}
+    public static string Executable(State s){
+        if(File.Exists(s.EverythingPath))return s.EverythingPath;
+        string root=System.IO.Path.GetFullPath(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory,".."));
+        foreach(string relative in new[]{@"tools\Everything-1.4.1.1032.x86\Everything.exe",@"vendor\Everything-1.4.1.1032.x64\everything.exe"}){
+            string candidate=System.IO.Path.Combine(root,relative);
+            if(File.Exists(candidate))return candidate;
+        }
+        foreach(string folder in new[]{Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)}){
+            string candidate=System.IO.Path.Combine(folder,"Everything","Everything.exe");
+            if(File.Exists(candidate))return candidate;
+        }
+        return "";
+    }
     // ES 命令行（es.exe）可能随项目 tools、也可能与 Everything 同目录或装在 Program Files。
     public static string EsExecutable(State s){
         var candidates=new List<string>();
@@ -54,10 +67,15 @@ public static class FileSearch {
             else if(name.IndexOf(term,StringComparison.OrdinalIgnoreCase)<0)return false;
         }return true;
     }
-    public static SearchResponse Query(Store store,string query,bool modified=false,int limit=100,string workspace=null){
+    public static SearchResponse Query(Store store,string query,bool modified=false,int limit=100,string workspace=null,bool respectIgnores=true,CancellationToken cancellation=default(CancellationToken)){
+        cancellation.ThrowIfCancellationRequested();
         limit=Math.Max(1,Math.Min(300,limit));
         if(workspace!=null&&!WorkspaceSelection.Available(workspace))return new SearchResponse(){Provider="本机范围",Message="项目目录不可用",Items=new SearchResult[0]};
         string cli=EsExecutable(store.Data);string error="";
+        if(store.Data.UseEverything)try{
+            var indexed=EverythingSdk.Query(store.Data,ScopedQuery((modified?"file: ":"")+(query??""),workspace),modified,respectIgnores?300:limit,cancellation);
+            return new SearchResponse(){Provider="Everything",Message="Everything 索引 · SDK",Items=indexed.Where(p=>InScope(p.Path,workspace)&&(!respectIgnores||!store.Ignored(p.Path,null))).Take(limit).ToArray()};
+        }catch(OperationCanceledException){throw;}catch(Exception ex){if(!(ex is DllNotFoundException||ex is EntryPointNotFoundException||ex is BadImageFormatException||ex is IOException||ex is TimeoutException||ex is System.ComponentModel.Win32Exception))throw;error=ex.Message;}
         if(store.Data.UseEverything&&File.Exists(cli))try{
             string expression=ScopedQuery(EscapeSearchOptions((modified?"file: ":"")+(query??"")),workspace);
             // ES uses positional search text; UTF-8 export preserves Chinese names independently of console code pages.
@@ -66,23 +84,25 @@ public static class FileSearch {
             var info=new ProcessStartInfo(cli,"-n 300 -export-csv "+Quote(export)+" -utf8-bom -full-path-and-name -size -size-format 1 -no-digit-grouping -dm -date-format 1 -sort "+(modified?"date-modified-descending":"name-ascending")+" "+expression){UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true};
             using(var p=Process.Start(info)){
                 var output=p.StandardOutput.ReadToEndAsync();var stderr=p.StandardError.ReadToEndAsync();
-                if(!p.WaitForExit(5000)){try{p.Kill();}catch{}throw new Exception("Everything 查询超时。");}
+                int elapsed=0;while(!p.WaitForExit(50)&&elapsed<5000&&!cancellation.IsCancellationRequested)elapsed+=50;
+                if(cancellation.IsCancellationRequested){if(!p.HasExited)p.Kill();cancellation.ThrowIfCancellationRequested();}
+                if(!p.HasExited){try{p.Kill();}catch{}throw new Exception("Everything 查询超时。");}
                 if(p.ExitCode!=0)throw new Exception("Everything 未连接，请在文件搜索设置中启动。");
                 output.GetAwaiter().GetResult();stderr.GetAwaiter().GetResult();string text=File.ReadAllText(export,Encoding.UTF8);var found=new List<SearchResult>();
-                foreach(var row in Csv(text).Skip(1)){long size;DateTime changed;if(row.Length<3||!Store.Exists(row[0])||!InScope(row[0],workspace)||store.Ignored(row[0],null))continue;Int64.TryParse(row[1],out size);DateTime.TryParse(row[2],out changed);found.Add(new SearchResult(){Path=row[0].TrimEnd('\\'),Bytes=size,Changed=changed});}
+                foreach(var row in Csv(text).Skip(1)){long size;DateTime changed;if(row.Length<3||!Store.Exists(row[0])||!InScope(row[0],workspace)||(respectIgnores&&store.Ignored(row[0],null)))continue;Int64.TryParse(row[1],out size);DateTime.TryParse(row[2],out changed);found.Add(new SearchResult(){Path=row[0].TrimEnd('\\'),Bytes=size,Changed=changed});}
                 return new SearchResponse(){Provider="Everything",Message="使用 Everything 索引",Items=found.Take(limit).ToArray()};
             }
             }finally{try{if(File.Exists(export))File.Delete(export);}catch{}}
-        }catch(Exception ex){error=ex.Message;}
+        }catch(OperationCanceledException){throw;}catch(Exception ex){error=ex.Message;}
         var pathsFound=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        if(workspace==null){foreach(string p in Store.DesktopItems())pathsFound.Add(p);foreach(var g in store.Data.Groups)foreach(string p in store.Items(g,""))pathsFound.Add(p);}
+        if(workspace==null){foreach(string p in Store.DesktopItems())pathsFound.Add(p);foreach(var g in store.Data.Groups)foreach(string p in respectIgnores?store.Items(g,""):g.Items)pathsFound.Add(p);}
         int visited=0;foreach(string dir in workspace==null?store.Data.WorkFolders:new List<string>{workspace}){
             var queue=new Queue<Tuple<string,int>>();queue.Enqueue(Tuple.Create(dir,0));
-            while(queue.Count>0&&visited<5000){var current=queue.Dequeue();string[] files;try{if(!WorkspaceSelection.Available(current.Item1))continue;files=Directory.GetFileSystemEntries(current.Item1);}catch{continue;}
-                foreach(string f in files){if(++visited>5000)break;try{if((File.GetAttributes(f)&FileAttributes.ReparsePoint)!=0||store.Ignored(f,null))continue;pathsFound.Add(f);if(Directory.Exists(f)&&current.Item2<3)queue.Enqueue(Tuple.Create(f,current.Item2+1));}catch{}}
+            while(queue.Count>0&&visited<5000){cancellation.ThrowIfCancellationRequested();var current=queue.Dequeue();string[] files;try{if(!WorkspaceSelection.Available(current.Item1))continue;files=Directory.GetFileSystemEntries(current.Item1);}catch{continue;}
+                foreach(string f in files){if(++visited>5000)break;try{if((File.GetAttributes(f)&FileAttributes.ReparsePoint)!=0||(respectIgnores&&store.Ignored(f,null)))continue;pathsFound.Add(f);if(Directory.Exists(f)&&current.Item2<3)queue.Enqueue(Tuple.Create(f,current.Item2+1));}catch{}}
             }
         }
-        var matches=new List<SearchResult>();foreach(string p in pathsFound)try{if(Store.Exists(p)&&InScope(p,workspace)&&!store.Ignored(p,null)&&(!modified||File.Exists(p))&&LocalMatch(p,query))matches.Add(new SearchResult(){Path=p,Bytes=FilePresentation.Bytes(p),Changed=File.GetLastWriteTime(p)});}catch{}
+        var matches=new List<SearchResult>();foreach(string p in pathsFound)try{if(Store.Exists(p)&&InScope(p,workspace)&&(!respectIgnores||!store.Ignored(p,null))&&(!modified||File.Exists(p))&&LocalMatch(p,query))matches.Add(new SearchResult(){Path=p,Bytes=FilePresentation.Bytes(p),Changed=File.GetLastWriteTime(p)});}catch{}
         IEnumerable<SearchResult> sorted=modified?matches.OrderByDescending(p=>p.Changed):matches.OrderBy(p=>p.Name,StringComparer.CurrentCultureIgnoreCase);
         return new SearchResponse(){Provider="本机范围",Message=(error.Length>0?error+" ":"")+"限桌面/项目，最多 5000 项、4 层；支持名称、ext:、folder:、dm:today",Items=sorted.Take(limit).ToArray()};
     }
@@ -90,13 +110,28 @@ public static class FileSearch {
 public partial class ManagerWindow {
     public void OpenProductivity(string page){Show();WindowState=WindowState.Normal;Activate();ShowSettingsPage(page);}
     StackPanel SearchPage(){
-        var p=SettingsPage("文件搜索","按 Alt＋Space 唤起当前项目，输入即搜；也可以切换全盘文件搜索。");
+        var p=SettingsPage("文件搜索","Ctrl＋Alt＋Space 呼出搜索栏；Alt＋Space 继续控制已选桌面分区。");
         var preview=new Border(){CornerRadius=new CornerRadius(26),Padding=new Thickness(22,16,22,16),Background=Ui.Brush("#EAF0F7"),MaxWidth=680,HorizontalAlignment=HorizontalAlignment.Left,Margin=new Thickness(0,12,0,20),Cursor=Cursors.Hand};
-        preview.Child=new TextBlock(){Text="⌕   搜索文件、文档、图片…",FontSize=21,Foreground=Ui.Muted};preview.MouseLeftButtonUp+=delegate{ShowWorkspaceSearch();};p.Children.Add(preview);
-        var actions=new WrapPanel();actions.Children.Add(Ui.Button("当前项目 · Alt＋Space",delegate{ShowWorkspaceSearch();}));actions.Children.Add(Ui.Button("搜索全盘文件",delegate{ShowWorkspaceSearch(false,true);}));p.Children.Add(actions);
-        p.Children.Add(Ui.Text("↑ ↓ 选择 · Enter 打开 · Ctrl＋Enter 定位 · Esc 收起。当前项目来自 MCP 上报或搜索面板中的选择。",12,Ui.Muted));
+        preview.Child=new TextBlock(){Text="⌕   搜索文件、文档、图片…",FontSize=21,Foreground=Ui.Muted};preview.MouseLeftButtonUp+=delegate{ShowQuickSearch();};p.Children.Add(preview);
+        var actions=new WrapPanel();actions.Children.Add(Ui.Button("打开搜索栏",delegate{ShowQuickSearch();}));actions.Children.Add(Ui.Button("添加桌面搜索插件",delegate{AddComponentPlugins(new[]{"qidesk.search"});}));p.Children.Add(actions);
+        Option(p,"启用 Ctrl＋Alt＋Space 搜索全部文件",controller.Store.Data.QuickSearchAll,delegate(bool value){controller.Store.Data.QuickSearchAll=value;SaveSettings(false);UpdateQuickSearchHotkey();ShowSettingsPage("文件搜索");});
+        p.Children.Add(Ui.Text(controller.Store.Data.QuickSearchAll?(QuickSearchHotkeyRegistered?"快捷键已启用":"快捷键未注册或被占用，可使用上方按钮"):"快捷键已关闭",12,Ui.Muted));
+        p.Children.Add(Ui.Text("↑ ↓ 选择 · Enter 打开 · Ctrl＋Enter 定位 · Esc 收起。支持 Everything 搜索表达式；分区忽略规则不会过滤搜索全部的结果。",12,Ui.Muted));
         Section(p,"Everything 连接");Option(p,"使用 Everything 全盘文件索引",controller.Store.Data.UseEverything,delegate(bool value){controller.Store.Data.UseEverything=value;SaveSettings(false);});
-        p.Children.Add(Ui.Button("启动 / 连接 Everything",delegate{try{FileSearch.Start(controller.Store.Data);SetStatus("Everything 已启动，可打开搜索条查询。");}catch(Exception ex){SetStatus(ex.Message);}}));
+        var connect=Ui.Button("启动 / 检查 Everything 连接",delegate{});
+        connect.Click+=async delegate{
+            connect.IsEnabled=false;
+            SetStatus("正在检查 Everything 连接…");
+            try{
+                FileSearch.Start(controller.Store.Data);
+                var snapshot=Store.Json.Deserialize<State>(Store.Json.Serialize(controller.Store.Data));
+                snapshot.UseEverything=true;
+                var response=await Task.Run(()=>FileSearch.Query(new StoreView(controller.Store.Root,snapshot).Store,"notepad.exe",false,1,null,false));
+                SetStatus(response.Provider=="Everything"?"Everything 已连接，可以搜索全部索引文件。":"Everything 未连接。请确认它已完成启动，且与栖桌运行在同一 Windows 用户会话；详情："+response.Message);
+            }catch(Exception ex){SetStatus("Everything 连接失败："+ex.Message);}
+            finally{connect.IsEnabled=true;}
+        };
+        p.Children.Add(connect);
         p.Children.Add(Ui.Button("选择 Everything 程序",delegate{var dialog=new Microsoft.Win32.OpenFileDialog(){Title="选择 Everything.exe",Filter="Everything 程序|Everything.exe;everything.exe"};if(dialog.ShowDialog(this)!=true)return;controller.Store.Checkpoint();controller.Store.Data.EverythingPath=dialog.FileName;SaveSettings(false);}));
         p.Children.Add(Ui.Text("Everything 未连接时搜索桌面与已连接项目；项目模式保持当前目录范围。高级表达式由 Everything 提供，本机模式支持名称、文件类型和今天修改。",12,Ui.Muted));return p;
     }

@@ -1,0 +1,112 @@
+{
+  "repo": "vinceliuice/Fluent-icon-theme",
+  "icons": [
+    {
+      "resolved": "https://raw.githubusercontent.com/vinceliuice/Fluent-icon-theme/c8a244f571ef8fb47812bdc9dbce76546cedce69/src/scalable/apps/ms-excel.svg",
+      "source": "src/scalable/apps/ms-excel.svg",
+      "sha256": "26efa268ba7ad9a1968347ffc6a57551d8a87b84459bca67f44a0c3d1e8d5ad1",
+      "id": "excel",
+      "pngSha256": "5945452846caa974b88c4b000b9da8900b31c7d92becd60248b6ce2afd93e5b2"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/vinceliuice/Fluent-icon-theme/c8a244f571ef8fb47812bdc9dbce76546cedce69/src/scalable/apps/google-chrome.svg",
+      "source": "src/scalable/apps/google-chrome.svg",
+      "sha256": "ede58d9893ea48fb8192fb151490064ec7ad256e680422be76a4842c06cfa8f9",
+      "id": "chrome",
+      "pngSha256": "57316b31a3c8c54d5b9d4e44c502c2b9c537b9a5878f3bc345cf2940ab1ba2f6"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/vinceliuice/Fluent-icon-theme/c8a244f571ef8fb47812bdc9dbce76546cedce69/src/scalable/mimetypes/text-x-generic.svg",
+      "source": "src/scalable/mimetypes/text-x-generic.svg",
+      "sha256": "0fc01d196bb1afca1bb8b84f0df476868236bce4ae048ee0094f3e447c6c0d2e",
+      "id": "document",
+      "pngSha256": "70370ab442dc094b038ac62d598553fa53905a3322e30eea12a9f2d21da18340"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/vinceliuice/Fluent-icon-theme/c8a244f571ef8fb47812bdc9dbce76546cedce69/src/scalable/apps/firefox.svg",
+      "source": "src/scalable/apps/firefox.svg",
+      "sha256": "bfcb3b9271387d3ea1d5b008a305eb1556f1ef1e417a84dc8c396850e39f997a",
+      "id": "firefox",
+      "pngSha256": "032ed641c2aaf2fe454eb2e22f6849e5f04679afa852710ab45f2919e2b4e300"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/vinceliuice/Fluent-icon-theme/c8a244f571ef8fb47812bdc9dbce76546cedce69/src/scalable/apps/netease-cloud-music.svg",
+      "source": "src/scalable/apps/netease-cloud-music.svg",
+      "sha256": "55b65eae0c6082f00fb41e21d635ddb5f71f332616a68cbf8e9997b44ce06e83",
+      "id": "cloudmusic",
+      "pngSha256": "389428751c729efdfdc41551f6494b41a7e0f51a5f55957a2151c52701ca173b"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/vinceliuice/Fluent-icon-theme/c8a244f571ef8fb47812bdc9dbce76546cedce69/src/scalable/apps/wechat.svg",
+      "source": "src/scalable/apps/wechat.svg",
+      "sha256": "b2a33b2388d612770ff9ff20fb461cb742ac38a42e020d7015e5ca37a6b2ae08",
+      "id": "wechat",
+      "pngSha256": "6aa20107d70d7c671b2d8c637e492c53e43986f8bf082a2d2945fe88b0d22fc4"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/vinceliuice/Fluent-icon-theme/c8a244f571ef8fb47812bdc9dbce76546cedce69/src/scalable/places/default-folder.svg",
+      "source": "src/scalable/places/default-folder.svg",
+      "sha256": "e5d6565d22da53ce1725bee20834a02717e631e181610e59f5274d8d5eb34d58",
+      "id": "folder",
+      "pngSha256": "60fc97d5f31210e473ef25cb8ee525b6073f81e7ec97fd0aa1c7085d0a772f37"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/vinceliuice/Fluent-icon-theme/c8a244f571ef8fb47812bdc9dbce76546cedce69/src/scalable/apps/matlab.svg",
+      "source": "src/scalable/apps/matlab.svg",
+      "sha256": "368d1770ccf0a2f8c0540c3f4b474e4e00bd79e3b6f674f31d7f214f9f0fd25c",
+      "id": "matlab",
+      "pngSha256": "4c9d5d86eb3f3b3bf6ea8e44f444b988fc3f22750880e51a731a454d2c938bb1"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/vinceliuice/Fluent-icon-theme/c8a244f571ef8fb47812bdc9dbce76546cedce69/src/scalable/apps/ms-word.svg",
+      "source": "src/scalable/apps/ms-word.svg",
+      "sha256": "fe4bd337637ca91d55cabac2d4c613089b8ca0fded576c27b4269be708dc445f",
+      "id": "word",
+      "pngSha256": "32c0196c186f3869fdd36343148b711b16210c5c5a8fc6667dc68176a5a7981f"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/vinceliuice/Fluent-icon-theme/c8a244f571ef8fb47812bdc9dbce76546cedce69/src/scalable/mimetypes/image-x-generic.svg",
+      "source": "src/scalable/mimetypes/image-x-generic.svg",
+      "sha256": "b67cd4b269199dc020e99c4a3966a3de2fca521d2c29749874013c7e0ca30e85",
+      "id": "image",
+      "pngSha256": "c1de0f5188e3ff9a8d3a252c6de047c8a8686d7df23b402f4119b447466f3e18"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/vinceliuice/Fluent-icon-theme/c8a244f571ef8fb47812bdc9dbce76546cedce69/src/scalable/apps/visualstudiocode.svg",
+      "source": "src/scalable/apps/visualstudiocode.svg",
+      "sha256": "56d371081cfbcc98186f91224b3fdd1fae2035e36b831b21f01783c6555f853e",
+      "id": "vscode",
+      "pngSha256": "2a57b0d3088ef92ad39ce63d0d9423081a9e34d85c3ef94d1fc730c586d1c2cb"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/vinceliuice/Fluent-icon-theme/c8a244f571ef8fb47812bdc9dbce76546cedce69/src/scalable/apps/7zip.svg",
+      "source": "src/scalable/apps/7zip.svg",
+      "sha256": "6efb87f7dc147dc925cde8bc852416bcfe2b7fcfb12a000e990ef13e21135717",
+      "id": "sevenzip",
+      "pngSha256": "2d0fb5ad5bec48db70842114f84859f123b9d2927a2c4ad2652ae8e1395d7af9"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/vinceliuice/Fluent-icon-theme/c8a244f571ef8fb47812bdc9dbce76546cedce69/src/scalable/apps/qq.svg",
+      "source": "src/scalable/apps/qq.svg",
+      "sha256": "a67aff975dcb6e45c017f9c0e4865377e1a256d3a212405d257d6a9b4b4af125",
+      "id": "qq",
+      "pngSha256": "152e415f82707c107f1ed1cf80ff1a145d58cc990e62438140ffa043d0ef32d8"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/vinceliuice/Fluent-icon-theme/c8a244f571ef8fb47812bdc9dbce76546cedce69/src/scalable/apps/ms-powerpoint.svg",
+      "source": "src/scalable/apps/ms-powerpoint.svg",
+      "sha256": "30cdb7e0d2024986c33e85b573c020e4335149b1901aa421348abc2a9d3291c0",
+      "id": "powerpoint",
+      "pngSha256": "44b58d1e3ce7c48defcc08f32a034e38b394b5c77fff48c7698503f265032536"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/vinceliuice/Fluent-icon-theme/c8a244f571ef8fb47812bdc9dbce76546cedce69/src/scalable/apps/microsoft-edge.svg",
+      "source": "src/scalable/apps/microsoft-edge.svg",
+      "sha256": "898aa4fe70b7759a978838bf1667e18a6f3528b3b5047a8ce65e99b27785fa09",
+      "id": "edge",
+      "pngSha256": "8881589e119177a8b21c6a13a6b0c2d056d192146f937fdc7c52ec5696f58c72"
+    }
+  ],
+  "license": "GPL-3.0",
+  "revision": "c8a244f571ef8fb47812bdc9dbce76546cedce69"
+}

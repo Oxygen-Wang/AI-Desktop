@@ -50,7 +50,7 @@ public sealed class DesktopPet : Window {
         squash=new ScaleTransform(1,1);
         scene.RenderTransform=squash;
         scene.RenderTransformOrigin=new Point(.5,.94);
-        Content=scene;
+        Content=new Viewbox(){Child=scene,Stretch=Stretch.Uniform};
         double scale=controller.Store.Data.PetScale;
         Width=BaseWidth*scale;Height=BaseHeight*scale;
         vector=new Canvas(){Width=100,Height=112,Background=Brushes.Transparent};
@@ -96,7 +96,7 @@ public sealed class DesktopPet : Window {
         RenderOptions.SetBitmapScalingMode(skin,BitmapScalingMode.HighQuality);
         Canvas.SetLeft(skin,0);Canvas.SetTop(skin,0);
         scene.Children.Add(vector);scene.Children.Add(skin);
-        ToolTip="点击开合工作区面板（Alt＋Space）\n把文件夹拖到我身上可以新建文件夹标签\n右键：换形象、大小、隐藏";
+        ToolTip="点击：将选中分区提到前台或放回桌面（Alt＋Space）\n拖入文件夹：添加桌面文件夹分区\n右键：换形象、大小、隐藏";
         // ---- 交互 ----
         MouseLeftButtonDown+=delegate(object s,MouseButtonEventArgs e){pressed=true;pressPoint=PointToScreen(e.GetPosition(this));pressLeft=Left;pressTop=Top;dragging=false;CaptureMouse();Touch();e.Handled=true;};
         MouseMove+=delegate(object s,MouseEventArgs e){
@@ -140,7 +140,8 @@ public sealed class DesktopPet : Window {
         ticker.Tick+=delegate{Tick();};
         ticker.Start();
         hoverTimer=new DispatcherTimer(){Interval=TimeSpan.FromMilliseconds((int)(HoverDelay*1000))};
-        hoverTimer.Tick+=delegate{hoverTimer.Stop();if(!hoverArmed||sleeping)return;if(controller.Manager==null)return;controller.Manager.ShowWorkspacePanel(false,false);};
+        // Hover only changes the pet's pose. It must not toggle a workspace after a click.
+        hoverTimer.Tick+=delegate{hoverTimer.Stop();};
         poseTimer=new DispatcherTimer(){Interval=TimeSpan.FromMilliseconds(200)};
         poseTimer.Tick+=delegate{poseTimer.Stop();SetPose(sleeping?"sleep":dropReady?"drop":dragging?"drag":"idle");};
         Closed+=delegate{closed=true;ticker.Stop();hoverTimer.Stop();poseTimer.Stop();};
@@ -235,7 +236,15 @@ public sealed class DesktopPet : Window {
     void Wake(){sleeping=false;lastTouch=DateTime.UtcNow.Ticks;SetPose("idle");}
     public void Touch(){lastTouch=DateTime.UtcNow.Ticks;if(sleeping)Wake();}
     public void NotifyPanelVisibility(bool visible){if(!sleeping)SetPose(visible?"panel":"idle",visible?0:400);}
-    void TogglePanel(){if(controller.Manager==null)return;controller.Manager.ShowWorkspacePanel(true);}
+    // 小猫点击 / 悬停：和 Alt＋Space 一致，选中的工作区在前台与桌面层之间切换，
+    // 什么都没有时才打开工作区面板。
+    public void ClickPanel(){
+        if(controller.Manager==null)return;
+        hoverTimer.Stop();
+        controller.Manager.ToggleWorkspaceFromPet();
+        NotifyPanelVisibility(controller.Manager.DesktopWorkspaceVisible);
+    }
+    void TogglePanel(){ClickPanel();}
     // ---- 位置 ----
     void Place(){
         var data=controller.Store.Data;
@@ -262,12 +271,21 @@ public sealed class DesktopPet : Window {
     void ShowMenu(){
         Touch();
         var menu=new ContextMenu();
-        bool open=controller.Manager!=null&&controller.Manager.WorkspacePanelVisible;
-        menu.Items.Add(Ui.Menu(open?"收起工作区面板（Alt＋Space）":"打开工作区面板（Alt＋Space）",TogglePanel));
+        bool open=controller.Manager!=null&&controller.Manager.DesktopWorkspaceVisible;
+        int selected=controller.Manager==null?0:controller.Manager.SelectedWorkspaceCount;
+        string workspaceLabel=open?"将选中分区放回桌面（Alt＋Space）":selected>0?"提起选中的 "+selected+" 个桌面分区（Alt＋Space）":"请先选择桌面分区";
+        menu.Items.Add(Ui.Menu(workspaceLabel,TogglePanel));
         menu.Items.Add(Ui.Menu("工作区搜索…",delegate{if(controller.Manager!=null)controller.Manager.ShowWorkspaceSearch();}));
         menu.Items.Add(new Separator());
         var skins=new MenuItem(){Header="小猫形象"};
-        foreach(string value in Skins){string choice=value;bool available=choice=="矢量猫"||File.Exists(Path.Combine(AssetRoot,"calico","cat_idle_0.png"))||File.Exists(Path.Combine(AssetRoot,"idle","cat_idle_0.png"));var item=Ui.Menu(choice+(available?"":"（素材缺失）"),delegate{ApplySkin(choice);});item.IsChecked=controller.Store.Data.PetSkin==choice;item.IsEnabled=available;skins.Items.Add(item);}
+        foreach(string value in Skins){
+            string choice=value;
+            bool available=choice=="矢量猫"||ResolveAsset(choice,"idle")!=null;
+            var item=Ui.Menu(choice+(available?"":"（素材缺失）"),delegate{ApplySkin(choice);});
+            item.IsChecked=controller.Store.Data.PetSkin==choice;
+            item.IsEnabled=available;
+            skins.Items.Add(item);
+        }
         menu.Items.Add(skins);
         var sizes=new MenuItem(){Header="小猫大小"};
         foreach(double scale in new double[]{.75,1,1.5,2}){double value=scale;var item=Ui.Menu(((int)(scale*100)).ToString()+"%",delegate{ApplyScale(value);});item.IsChecked=Math.Abs(controller.Store.Data.PetScale-scale)<.01;sizes.Items.Add(item);}

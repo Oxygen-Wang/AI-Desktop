@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using System.Collections.Generic;
@@ -19,7 +19,13 @@ public sealed class IgnoreRule {
         return Regex.IsMatch(Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar)),"^"+pattern+"$",RegexOptions.IgnoreCase|RegexOptions.CultureInvariant,TimeSpan.FromMilliseconds(100));
     }
     public static string Canonical(string path){try{return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar,Path.AltDirectorySeparatorChar);}catch{return "";}}
-    public static void Validate(List<IgnoreRule> rules){if(rules.Count>500)throw new InvalidDataException("每个范围最多支持 500 条忽略规则。");var ids=new HashSet<string>();foreach(var r in rules){if(r==null||String.IsNullOrWhiteSpace(r.Pattern)||r.Pattern.Length>1024)throw new InvalidDataException("忽略规则不能为空且最多 1024 字符。");if(r.Kind!="名称"&&r.Kind!="路径")throw new InvalidDataException("忽略规则类型无效。");if(r.Kind=="名称"&&(r.Pattern.Contains("/")||r.Pattern.Contains("\\")))throw new InvalidDataException("名称规则仅匹配文件名；路径请使用指定项目。");if(r.Kind=="路径"&&(String.IsNullOrEmpty(Canonical(r.Pattern))||!Path.IsPathRooted(r.Pattern)))throw new InvalidDataException("指定项目必须使用有效绝对路径。");if(String.IsNullOrEmpty(r.Id)||!ids.Add(r.Id))throw new InvalidDataException("忽略规则标识重复。");}}
+    public static void Validate(List<IgnoreRule> rules){if(rules.Count>500)throw new InvalidDataException("每个范围最多支持 500 条忽略规则。");var ids=new HashSet<string>();foreach(var r in rules){if(r==null||String.IsNullOrWhiteSpace(r.Pattern)||r.Pattern.Length>1024)throw new InvalidDataException("忽略规则不能为空且最多 1024 字符。");if(r.Kind!="名称"&&r.Kind!="路径"&&r.Kind!="Git")throw new InvalidDataException("忽略规则类型无效。");if(r.Kind=="Git")new IgnorePattern(r.Pattern);if(r.Kind=="名称"&&(r.Pattern.Contains("/")||r.Pattern.Contains("\\")))throw new InvalidDataException("名称规则仅匹配文件名；路径请使用指定项目。");if(r.Kind=="路径"&&(String.IsNullOrEmpty(Canonical(r.Pattern))||!Path.IsPathRooted(r.Pattern)))throw new InvalidDataException("指定项目必须使用有效绝对路径。");if(String.IsNullOrEmpty(r.Id)||!ids.Add(r.Id))throw new InvalidDataException("忽略规则标识重复。");}}
+}
+public static class IgnoreRuleInput {
+    public static string[] Split(string input){
+        return (input??"").Split(new[]{',','，',';','；',' ','\t','\r','\n','　'},StringSplitOptions.RemoveEmptyEntries)
+            .Select(value=>value.Trim()).Where(value=>value.Length>0).ToArray();
+    }
 }
 public static class FilePresentation {
     public static string DisplayName(string path,bool showExtension){string name=Path.GetFileName(path);if(showExtension||Directory.Exists(path)||String.IsNullOrEmpty(name)||name[0]=='.'&&name.IndexOf('.',1)<0)return name;string stem=Path.GetFileNameWithoutExtension(name);return String.IsNullOrEmpty(stem)?name:stem;}

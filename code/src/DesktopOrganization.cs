@@ -40,6 +40,7 @@ public static class DesktopOrganization {
         return path;
     }
     public static void Restore(State state){
+        FileRenaming.Recover(state);
         LastError="";
         foreach(var managed in state.ManagedDesktopItems.Keys.ToArray()){
             try{string original=Release(state,managed);Replace(state,managed,original);}

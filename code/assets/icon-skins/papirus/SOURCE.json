@@ -1,0 +1,105 @@
+{
+  "repo": "PapirusDevelopmentTeam/papirus-icon-theme",
+  "icons": [
+    {
+      "resolved": "https://raw.githubusercontent.com/PapirusDevelopmentTeam/papirus-icon-theme/bf539287ef5dc18529424a02cccee76175920a6f/Papirus/48x48/apps/ms-excel.svg",
+      "source": "Papirus/48x48/apps/ms-excel.svg",
+      "sha256": "66d8033f4ade64f4ddfe62da2506ed18c7b7ff352b7e1acddff77ebde8de03c6",
+      "id": "excel",
+      "pngSha256": "305fcc5d0e9fcc972c242604a1320ff336204e5b96b321676e0cc3ad6d0e5fdb"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/PapirusDevelopmentTeam/papirus-icon-theme/bf539287ef5dc18529424a02cccee76175920a6f/Papirus/48x48/apps/google-chrome.svg",
+      "source": "Papirus/48x48/apps/google-chrome.svg",
+      "sha256": "0d968753e6165567bbcf0bf0f381dc2e9de8335a13230d6d23f886749082f39c",
+      "id": "chrome",
+      "pngSha256": "1a1b7b6880857be6198ea1ebd6d54b0796848b17d9a89d9eb0372ee36ceff7fa"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/PapirusDevelopmentTeam/papirus-icon-theme/bf539287ef5dc18529424a02cccee76175920a6f/Papirus/48x48/mimetypes/text-x-generic.svg",
+      "source": "Papirus/48x48/mimetypes/text-x-generic.svg",
+      "sha256": "17a03f8633162704aae25ca627b96544348c3c5af3140db38cdc90c88187a9ab",
+      "id": "document",
+      "pngSha256": "4d40eb6c99ac1105c7f08981f7e005bb46a846911a2342acfd7b5c632536e3a5"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/PapirusDevelopmentTeam/papirus-icon-theme/bf539287ef5dc18529424a02cccee76175920a6f/Papirus/48x48/apps/firefox.svg",
+      "source": "Papirus/48x48/apps/firefox.svg",
+      "sha256": "662f712b309a615f6ffb388d37ecda0ce789bb0bc54e6c4d5b0cc1169495666e",
+      "id": "firefox",
+      "pngSha256": "c81a68551abb50302625e687f7fb204291817223c49914d9f0de77e2ae3637ce"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/PapirusDevelopmentTeam/papirus-icon-theme/bf539287ef5dc18529424a02cccee76175920a6f/Papirus/48x48/apps/netease-cloud-music.svg",
+      "source": "Papirus/48x48/apps/netease-cloud-music.svg",
+      "sha256": "0fbfe5c52038ba2f57d50c445d8f78995425caed588a0871cb9d91c2141c862d",
+      "id": "cloudmusic",
+      "pngSha256": "79df0ca38adcef4f03e5720ffe0b49384e893d232c8f633d3ad13f7d7f2a7b31"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/PapirusDevelopmentTeam/papirus-icon-theme/bf539287ef5dc18529424a02cccee76175920a6f/Papirus/48x48/apps/wechat.svg",
+      "source": "Papirus/48x48/apps/wechat.svg",
+      "sha256": "48b53816f79efb268f1aa1cf00f76f248dac0e1ca029b0dd72e4f6fe9d393242",
+      "id": "wechat",
+      "pngSha256": "f93c867df04708051b51294ba0f15a50b6e03423ca194299322517323ee7ed88"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/PapirusDevelopmentTeam/papirus-icon-theme/bf539287ef5dc18529424a02cccee76175920a6f/Papirus/48x48/places/folder-blue.svg",
+      "source": "Papirus/48x48/places/folder-blue.svg",
+      "sha256": "e9335dbc48f38943156b35756b16734933b303518f384b0f8e3439222402df8f",
+      "id": "folder",
+      "pngSha256": "39a634c15f07b211a2c30c8e7ffebc8eca1db52f06eb43d3a7f4239e77b1ba45"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/PapirusDevelopmentTeam/papirus-icon-theme/bf539287ef5dc18529424a02cccee76175920a6f/Papirus/48x48/apps/ms-word.svg",
+      "source": "Papirus/48x48/apps/ms-word.svg",
+      "sha256": "2425b0b966250bbcc902f7afb9c1ef076493cee84555cd9b4c40e701d8532a1f",
+      "id": "word",
+      "pngSha256": "4b5c5f500141154f03f99de63c9c7bb4e71cf0363ffa11ffa7d2d796f3a026d4"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/PapirusDevelopmentTeam/papirus-icon-theme/bf539287ef5dc18529424a02cccee76175920a6f/Papirus/48x48/mimetypes/image-x-generic.svg",
+      "source": "Papirus/48x48/mimetypes/image-x-generic.svg",
+      "sha256": "79a77517cd533d9e99dbaa3f0384d8134e604d07319cdeb65198f040da456b60",
+      "id": "image",
+      "pngSha256": "f437966c703087f78c74d005d25cca067ba3ef6b73583bb18370493511f054df"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/PapirusDevelopmentTeam/papirus-icon-theme/bf539287ef5dc18529424a02cccee76175920a6f/Papirus/48x48/apps/vscode.svg",
+      "source": "Papirus/48x48/apps/visual-studio-code.svg",
+      "sha256": "b0c9c235e175259d4faf5a0e53e779e082efa5f7a94500e1998bd7e009236888",
+      "id": "vscode",
+      "pngSha256": "e0e0e3a75a5f0f95ddc973ba139739c72c7f2e8d6ba504b536a545a31079b6c1"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/PapirusDevelopmentTeam/papirus-icon-theme/bf539287ef5dc18529424a02cccee76175920a6f/Papirus/48x48/apps/ark.svg",
+      "source": "Papirus/48x48/apps/7zip.svg",
+      "sha256": "d7c8dcbd854c7bd2186b94060eb3b17322576bd083f9c3d0c1fc24ef89c2542d",
+      "id": "sevenzip",
+      "pngSha256": "e48c818707dea1c44240492f988469b00c32c5ffbd62c7b611771acc8a76b658"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/PapirusDevelopmentTeam/papirus-icon-theme/bf539287ef5dc18529424a02cccee76175920a6f/Papirus/48x48/apps/matlab.svg",
+      "source": "Papirus/48x48/apps/matlab.svg",
+      "sha256": "d5247bb3c9d27f7807bf593d0c5dd82f3ecbd5ccfa27289add2383eaed8ff46f",
+      "id": "matlab",
+      "pngSha256": "12a4a57c4809ff9180497db51bf23abd5d80165758f69070dbc3899ba4e12328"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/PapirusDevelopmentTeam/papirus-icon-theme/bf539287ef5dc18529424a02cccee76175920a6f/Papirus/48x48/apps/ms-powerpoint.svg",
+      "source": "Papirus/48x48/apps/ms-powerpoint.svg",
+      "sha256": "76d5be74b47ccb792346fa847327589a664aae2db6b82133a0b0867f75b14ae3",
+      "id": "powerpoint",
+      "pngSha256": "b72a87473dd576e2ba2a0ac1b3bbe0b5508fcaead2c708787f07ea0f29ce9b1f"
+    },
+    {
+      "resolved": "https://raw.githubusercontent.com/PapirusDevelopmentTeam/papirus-icon-theme/bf539287ef5dc18529424a02cccee76175920a6f/Papirus/48x48/apps/microsoft-edge.svg",
+      "source": "Papirus/48x48/apps/microsoft-edge.svg",
+      "sha256": "3df59ed39a24e4c5a5884b972ce92878f7622ada4217b415f63dd738448b3d7e",
+      "id": "edge",
+      "pngSha256": "54d831670d6864144559216e656ba77567612606b149189118a73edda224d023"
+    }
+  ],
+  "license": "GPL-3.0",
+  "revision": "bf539287ef5dc18529424a02cccee76175920a6f"
+}

@@ -6,9 +6,10 @@ using System.Windows;
 namespace QiDesk {
 // 只保留拖拽/碰撞用到的几何帮助函数；“桌面自动排列”功能已移除。
 public static class GroupArrangement {
-    public static Rect Bounds(Group group){return new Rect(group.X,group.Edge=="bottom"?group.Y+42-group.Height:group.Y,group.Width,group.Height);}
+    public const double HeaderHeight=48;
+    public static Rect Bounds(Group group){return new Rect(group.X,group.Edge=="bottom"?group.Y+HeaderHeight-group.Height:group.Y,group.Width,group.Height);}
     public static bool Overlaps(Rect a,Rect b,double gap){return a.Left<b.Right+gap-.001&&a.Right>b.Left-gap+.001&&a.Top<b.Bottom+gap-.001&&a.Bottom>b.Top-gap+.001;}
-    public static Rect VisibleBounds(Group group){return new Rect(group.X,group.Y,group.Width,group.Rolled?42:group.Height);}
+    public static Rect VisibleBounds(Group group){return new Rect(group.X,group.Y,group.Width,group.Rolled?HeaderHeight:group.Height);}
     public static bool NearestFree(Group moved,IEnumerable<Group> others,IList<Rect> areas,double gap,out Point result){
         var current=VisibleBounds(moved);result=current.TopLeft;
         var taken=others.Where(g=>g!=null&&g.Id!=moved.Id&&g.Page==moved.Page).Select(VisibleBounds).ToArray();

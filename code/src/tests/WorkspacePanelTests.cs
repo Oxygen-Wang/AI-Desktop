@@ -111,6 +111,7 @@ public static class WorkspacePanelTests {
         check(DesktopPet.ResolveAsset("默认猫","sleep")!=null&&DesktopPet.ResolveAsset("毛绒三花","drag")!=null,"cat poses map to the matching asset states");
         check(DesktopPet.ResolveAsset("矢量猫","idle")==null,"the vector cat skin falls back to the built-in drawing");
         check(DesktopPet.Skins.Contains("默认猫")&&DesktopPet.Skins.Contains("毛绒三花")&&DesktopPet.Skins.Contains("矢量猫"),"three cat skins are offered");
+        UnifiedWorkspaceTests.Run(root,check);
     }
     static void Pump(int milliseconds){
         var end=DateTime.UtcNow.AddMilliseconds(milliseconds);
@@ -192,6 +193,33 @@ public static class WorkspacePanelTests {
             check(controller.SelectedGroups.Contains(host.Id),"Ctrl+click selection records the desktop partition");
             controller.ToggleGroupSelection(host);
             check(controller.SelectedGroups.Count==0,"clicking a selected partition again clears the selection");
+            // The pet now uses only desktop partitions. Legacy-panel tests above remain
+            // migration coverage and do not expose a second panel through the pet.
+            panel.Dismiss();store.Data.PanelTabs.Clear();
+            controller.Running=true;
+            var pet=new DesktopPet(controller);
+            try{
+                check(controller.SelectedGroups.Count==0,"the workspace selection starts empty before the pet click");
+                pet.ClickPanel();Pump(60);
+                check(!manager.WorkspacePanelVisible,"clicking the pet without selection never creates an extra workspace panel");
+                var fenceGroup=new Group(){Name="小猫测试分区",Page=store.Data.Page};
+                store.Data.Groups.Add(fenceGroup);
+                var fence=new FenceWindow(controller,fenceGroup);
+                controller.Windows.Add(fence);
+                try{
+                    controller.ToggleGroupSelection(fenceGroup);
+                    controller.ToggleSelectedWorkspace();
+                    check(fence.IsVisible&&!fence.Topmost&&controller.WorkspaceVisible,"the selected partition starts raised in front of the desktop");
+                    fence.MiddleClick();Pump(60);
+                    check(!fence.IsVisible&&!controller.WorkspaceVisible,"middle click collapses the raised workspace like a folder");
+                    pet.ClickPanel();Pump(60);
+                    check(!manager.WorkspacePanelVisible,"clicking the pet with a selection never opens the workspace panel");
+                    check(fence.IsVisible&&!fence.Topmost&&controller.WorkspaceVisible,"clicking the pet raises the collapsed partition back to the front");
+                    pet.ClickPanel();Pump(60);
+                    check(fence.IsVisible&&!fence.Topmost&&!controller.WorkspaceVisible,"clicking the pet again returns the raised partition to the desktop without hiding it");
+                }finally{controller.Windows.Remove(fence);fence.Close();controller.ClearGroupSelection();}
+                store.Data.Groups.Remove(fenceGroup);
+            }finally{pet.Close();}
             panel.Dismiss();check(!panel.IsVisible,"Escape or the close button hides the floating workspace panel");
         }finally{panel.Close();if(manager.WorkspacePanelVisible)manager.ShowWorkspacePanel(true);manager.Quit();}
     }
@@ -232,6 +260,9 @@ public static class WorkspacePanelTests {
             Capture(pet,Path.Combine(output,"desktop-pet-preview.png"));
             pet.ApplySkin("毛绒三花");Pump(240);pet.UpdateLayout();
             Capture(pet,Path.Combine(output,"desktop-pet-calico-preview.png"));
+            pet.ApplyScale(2);Pump(120);pet.UpdateLayout();
+            Capture(pet,Path.Combine(output,"desktop-pet-calico-200-preview.png"));
+            pet.ApplyScale(1);
             pet.ApplySkin("矢量猫");Pump(240);pet.UpdateLayout();
             Capture(pet,Path.Combine(output,"desktop-pet-vector-preview.png"));
             var pinned=new Group(){Name="文件夹",Kind="文件夹",Folder=project,Folders=new List<string>{project,Path.Combine(project,"src")},Width=700,Height=420,FolderIndex=0};

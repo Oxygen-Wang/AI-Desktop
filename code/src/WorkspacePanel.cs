@@ -486,7 +486,7 @@ public sealed class WorkspacePanel : Window {
         foreach(double value in new double[]{.25,.5,.75,1}){double choice=value;var item=Ui.Menu(((int)(value*100))+"%",delegate{style.BorderOpacity=choice;controller.Store.Save();ApplyStyle();});item.IsChecked=Math.Abs(style.BorderOpacity-value)<.02;border.Items.Add(item);}
         root.Items.Add(border);
         var skin=new MenuItem(){Header="图标皮肤"};
-        foreach(string value in new[]{"经典","Fluent 线条","Fluent 填充"}){string choice=value;var item=Ui.Menu(choice,delegate{style.IconSkin=choice;controller.Store.Save();lastSignature=null;ApplyStyle();Refresh();});item.IsChecked=style.IconSkin==choice;skin.Items.Add(item);}
+        foreach(string value in AppIconSkins.Choices){string choice=value;var item=Ui.Menu(choice,delegate{style.IconSkin=choice;controller.Store.Save();lastSignature=null;ApplyStyle();Refresh();});item.IsChecked=style.IconSkin==choice;skin.Items.Add(item);}
         root.Items.Add(skin);
         var follow=new MenuItem(){Header="跟随分区外观"};
         var none=Ui.Menu("不跟随（用面板自己的外观）",delegate{controller.Store.Data.PanelFollowGroupId="";controller.Store.Save();lastTabSignature=null;ApplyStyle();});none.IsChecked=String.IsNullOrEmpty(controller.Store.Data.PanelFollowGroupId);follow.Items.Add(none);
@@ -804,13 +804,14 @@ public sealed class WorkspacePanel : Window {
         Brush plateBackground=style.IconSkin=="Fluent 线条"?new SolidColorBrush(Color.FromArgb(225,236,243,250)):style.IconSkin=="Fluent 填充"?new SolidColorBrush(Color.FromArgb(240,28,40,60)):(Brush)(directory?new LinearGradientBrush(Color.FromArgb(235,58,78,104),Color.FromArgb(245,33,47,68),90):new LinearGradientBrush(Color.FromArgb(235,36,54,78),Color.FromArgb(245,19,32,50),90));
         Color accent=TimedAccent(style.IconColor);
         bool picture=Thumbnails.IsPicture(path);
-        var themed=FilePresentation.IsApplication(path)?null:FluentIcons.Icon(path,style.IconSkin,accent);
+        var themed=FileIconPresentation.Themed(path,style,data,size);
         var icon=new Image(){Width=directory?size*.88:size*.84,Height=directory?size*.88:size*.84,Stretch=Stretch.Uniform,SnapsToDevicePixels=true};
         RenderOptions.SetBitmapScalingMode(icon,BitmapScalingMode.HighQuality);
-        icon.Source=themed??Shell.Icon(path);Thumbnails.Bind(icon,path,size);
+        FileIconPresentation.Bind(icon,path,size,themed);
         double plateSize=size+(listMode?6:10);
         double radius=style.CornerStyle=="方角"?0:directory?Math.Max(7,plateSize*.27):Math.Max(5,plateSize*.18);
         var plate=new Border(){Width=plateSize,Height=plateSize,CornerRadius=new CornerRadius(radius),BorderThickness=new Thickness(style.IconSkin=="Fluent 线条"?1.5:1),BorderBrush=style.IconSkin=="经典"?(picture?Ui.Brush("#D6E2EE"):directory?Ui.Brush(style.Color):Ui.Brush("#8296AD")):new SolidColorBrush(accent),Background=plateBackground,Child=icon,Margin=new Thickness(0,0,listMode?8:0,listMode?0:7),Effect=Ui.Shadow(1,5,.2)};
+        if(AppIconSkins.IsPack(style.IconSkin)){plate.Background=Brushes.Transparent;plate.BorderThickness=new Thickness(0);plate.Effect=null;icon.Width=size;icon.Height=size;}
         if(picture)icon.Clip=new RectangleGeometry(new Rect(0,0,size,size),style.CornerStyle=="方角"?0:Math.Max(4,size*.16),style.CornerStyle=="方角"?0:Math.Max(4,size*.16));
         var name=new TextBlock(){Text=FilePresentation.DisplayName(path,data.ShowFileExtensions),Foreground=Ui.DesktopInk,FontSize=11,TextAlignment=listMode?TextAlignment.Left:TextAlignment.Center,TextWrapping=listMode?TextWrapping.NoWrap:TextWrapping.Wrap,MaxHeight=34,TextTrimming=TextTrimming.CharacterEllipsis,Effect=Ui.Shadow(1,3,.8)};
         Border box;

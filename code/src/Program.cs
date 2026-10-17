@@ -14,6 +14,9 @@ public static class Program {
         try{
             if(args.Length>=3&&args[0]=="--build-icon")return AppIcon.Generate(args[1],args[2]);
 #if QIDESK_TESTS
+            if(args.Contains("--render-icon-skins"))return AppIconSkinTests.Render();
+            if(args.Contains("--render-quick-search"))return QuickSearchAndRenameTests.Render();
+            if(args.Contains("--render-unified"))return UnifiedWorkspaceTests.Render();
             if(args.Contains("--render-search"))return WorkspaceSearchTests.Render();
             if(args.Contains("--render-panel"))return WorkspacePanelTests.Render();
             if(args.Contains("--render-components"))return ComponentFeatureTests.Render();
@@ -25,8 +28,11 @@ public static class Program {
             if(args.Length>0&&args[0]=="--desktop-guard")return DesktopOrganization.Guard(args);
 #if QIDESK_TESTS
             if(args.Length>0&&args[0]=="--test-icon-owner")return InteractionTests.OwnerProbe(args);
+            if(args.Contains("--self-test")&&args.Contains("--icon-skins"))return AppIconSkinTests.Verify(args.Contains("--native-test"));
+            if(args.Contains("--self-test")&&args.Contains("--quick-features"))return QuickSearchAndRenameTests.Verify(args.Contains("--native-test"));
             if(args.Contains("--self-test"))return Tests.Run(args.Contains("--native-test"));
 #endif
+            if(args.Any(a=>a.StartsWith("--layout-")))return LayoutCli.Run(args);
             string shellAction=args.Contains("--organize-loose")?"--organize-loose":null;
             if(shellAction!=null&&DesktopShellActions.Signal(shellAction))return 0;
             bool render=args.Contains("--render")||args.Contains("--render-settings");
@@ -43,12 +49,12 @@ public static class Program {
                         // Render this application's own UI to an artifact, without desktop hooks.
                         window.Left=-20000;window.Top=-20000;
                         window.Dispatcher.BeginInvoke(new Action(delegate{Capture(window,Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"preview.png"));if(args.Contains("--render-settings")){foreach(string name in window.SettingsPageNames){window.ShowSettingsPage(name);window.UpdateLayout();Capture(window,Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"settings-"+name+".png"));}window.ShowSettingsPage("主页");}var pictureGroup=store.Data.Groups.FirstOrDefault(g=>store.Items(g,"").Any(p=>new[]{".png",".jpg",".jpeg",".webp"}.Contains(Path.GetExtension(p).ToLowerInvariant())));if(pictureGroup!=null){var enlarged=Store.Json.Deserialize<Group>(Store.Json.Serialize(pictureGroup));enlarged.IconSize=96;enlarged.ViewMode="图标";enlarged.Width=460;enlarged.Height=420;CaptureFence(controller,enlarged,"picture-preview.png");}var sample=store.Data.Groups.FirstOrDefault();if(sample!=null){CaptureFence(controller,sample,"fence-preview.png");var transparent=Store.Json.Deserialize<Group>(Store.Json.Serialize(sample));transparent.BackgroundOpacity=0;CaptureFence(controller,transparent,"transparent-preview.png");var detailGroup=pictureGroup??sample;var details=new FileDetailsWindow(controller,detailGroup,detailGroup.Folder,window){WindowStartupLocation=WindowStartupLocation.Manual,Left=-20000,Top=-20000};details.Show();details.UpdateLayout();Thumbnails.RequestVisible(details);Thumbnails.Drain(4000);Capture(details,Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"details-preview.png"));details.Close();}var portal=store.Data.Groups.FirstOrDefault(g=>!String.IsNullOrEmpty(g.Folder));if(args.Contains("--render-settings")&&portal!=null)CaptureFence(controller,portal,"portal-preview.png");foreach(var widget in store.Data.Widgets){var widgetWindow=new WidgetWindow(controller,widget){Left=-20000,Top=-20000};widgetWindow.Show();widgetWindow.UpdateLayout();Capture(widgetWindow,Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"widget-"+widget.PluginId+".png"));widgetWindow.Close();}window.Quit();}),DispatcherPriority.ApplicationIdle);
-                    }else{window.EnableTrayAndHotkeys();controller.UpdateMcp();controller.StartProjectDetection();controller.AddStarterWidgets();controller.EnsureDefaultPanels();if(args.Contains("--desktop"))controller.Start(true);else{ExplorerDesktop.RestoreInteraction();controller.RecoverDesktopIfNeeded();}if(store.LastError!="")window.SetStatus(store.LastError);if(shellAction!=null)window.Dispatcher.BeginInvoke(new Action(delegate{controller.ApplyRules();}),DispatcherPriority.ApplicationIdle);else window.Dispatcher.BeginInvoke(new Action(window.MaybeShowTutorial),DispatcherPriority.ApplicationIdle);if(args.Contains("--tray"))window.Hide();}
+                    }else{window.EnableTrayAndHotkeys();LayoutBridge.Start(controller);controller.UpdateMcp();controller.StartProjectDetection();controller.AddStarterWidgets();controller.EnsureDefaultPanels();if(args.Contains("--desktop"))controller.Start(true);else{ExplorerDesktop.RestoreInteraction();controller.RecoverDesktopIfNeeded();}if(store.LastError!="")window.SetStatus(store.LastError);if(shellAction!=null)window.Dispatcher.BeginInvoke(new Action(delegate{controller.ApplyRules();}),DispatcherPriority.ApplicationIdle);else window.Dispatcher.BeginInvoke(new Action(window.MaybeShowTutorial),DispatcherPriority.ApplicationIdle);if(args.Contains("--tray"))window.Hide();}
                 };
                 if(render){window.Left=-20000;window.Top=-20000;window.WindowStartupLocation=WindowStartupLocation.Manual;}
                 app.Run(window);return 0;
             }
-        }catch(Exception ex){string log=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"startup-error.log");File.WriteAllText(log,ex.ToString());bool headless=args.Contains("--self-test")||args.Contains("--mcp")||args.Contains("--mcp-fixture")||args.Contains("--build-icon")||args.Contains("--icon-guard")||args.Contains("--test-icon-owner")||args.Any(a=>a.StartsWith("--render"));if(!headless)MessageBox.Show(ex.Message,"栖桌启动失败");return 1;}
+        }catch(Exception ex){string log=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"startup-error.log");File.WriteAllText(log,ex.ToString());bool headless=args.Contains("--self-test")||args.Contains("--mcp")||args.Contains("--mcp-fixture")||args.Contains("--build-icon")||args.Contains("--icon-guard")||args.Contains("--test-icon-owner")||args.Any(a=>a.StartsWith("--render"))||args.Any(a=>a.StartsWith("--layout-"));if(!headless)MessageBox.Show(ex.Message,"栖桌启动失败");return 1;}
     }
     static void Capture(Window window,string path){window.UpdateLayout();var bitmap=new RenderTargetBitmap((int)window.ActualWidth,(int)window.ActualHeight,96,96,PixelFormats.Pbgra32);bitmap.Render(window);var png=new PngBitmapEncoder();png.Frames.Add(BitmapFrame.Create(bitmap));using(var output=File.Create(path))png.Save(output);}
     static void CaptureFence(Controller controller,Group group,string filename){var fence=new FenceWindow(controller,group);fence.Left=-20000;fence.Top=-20000;fence.Show();fence.UpdateLayout();Thumbnails.RequestVisible(fence);Thumbnails.Drain(4000);Capture(fence,Path.Combine(AppDomain.CurrentDomain.BaseDirectory,filename));fence.Close();}
@@ -81,14 +87,23 @@ public static class Tests {
             var secondary=new Group(){X=-1200,Y=100,Width=320,Height=340};Check(!Layout.EnsureVisible(secondary,areas,0)&&secondary.X==-1200,"valid negative secondary monitor position retained");
             var partial=new Group(){X=1850,Y=100,Width=320,Height=340};Check(!Layout.EnsureVisible(partial,areas,0),"reachable partially visible header retained");
             InteractionTests.Pure(Check);
+            PageSwipeTests.Pure(Check);
             ReferenceTests.Run(testRoot,Check);
             DragTests.Run(testRoot,Check);
             FileFeatureTests.Run(testRoot,Check);
+            ShortcutIconTests.Run(testRoot,Check);
             ProjectPluginTests.Run(testRoot,Check);
             WorkspaceSearchTests.Run(testRoot,Check);
             WorkspacePanelTests.Run(testRoot,Check);
+            PartitionTabTests.Run(testRoot,Check);
+            LayoutArchiveTests.Run(testRoot,Check);
+            LayoutBridgeTests.Run(testRoot,Check);
+            StoreRecoveryTests.Run(testRoot,Check);
+            CustomIconTests.Run(testRoot,Check);
+            MultiSelectTests.Run(testRoot,Check);
             ComponentFeatureTests.Run(testRoot,Check);
-            ProductivityTests.Run(testRoot,Check);
+            ProductivityTests.Run(testRoot,Check);QuickSearchAndRenameTests.Run(testRoot,Check);AppIconSkinTests.Run(testRoot,Check);
+            CodeRuleTests.Run(testRoot,Check);
             store.Data.HideOriginalIcons=true;store.Data.DoubleClickHide=false;store.Save();var options=new Store(testRoot);Check(options.Data.HideOriginalIcons&&!options.Data.DoubleClickHide,"desktop interaction preferences survive restart");
             if(native){
                 IntPtr host=Shell.DesktopHost();Check(host!=IntPtr.Zero,"actual Explorer desktop host found");Check(Shell.Icon(file)!=null,"native file icon lookup");
@@ -105,23 +120,46 @@ public static class Tests {
                     var view=new RenderTargetBitmap((int)live.ActualWidth,(int)live.ActualHeight,96,96,PixelFormats.Pbgra32);view.Render(live);byte[] pixels=new byte[320*240*4];view.CopyPixels(pixels,320*4,0);Check(pixels.Where((value,index)=>index%4==3).Any(value=>value>0),"bound transparent group renders nonempty content");
                     store.Data.Groups.Add(liveGroup);
                     controller.Windows.Add(live);
+                    var otherGroup=new Group(){Name="workspace hotkey neighbour",X=420,Y=64,Width=320,Height=240};
+                    var other=new FenceWindow(controller,otherGroup){Left=-20000,Top=-20000,ShowActivated=false};
+                    other.Show();Pump();
+                    other.PlaceOnDesktop(host);
+                    controller.Docked=true;
+                    controller.Windows.Add(other);
                     controller.ToggleGroupSelection(liveGroup);
                     controller.ToggleSelectedWorkspace();
-                    Check(live.IsVisible&&live.Topmost&&Shell.DesktopBindingValid(live,host),"Alt+Space raises the selected desktop partition without losing desktop ownership");
+                    Check(live.IsVisible&&!live.Topmost&&Shell.FloatingBindingValid(live),"Alt+Space raises a selected partition as an ordinary foreground window");
+                    Check(other.IsVisible&&!other.Topmost,"raising a selected workspace leaves unselected partitions untouched");
+                    Check((Shell.ExtendedStyle(other)&8)==0&&Shell.DesktopBindingValid(other,host),"unselected native window remains non-topmost and owned by the desktop");
                     controller.ToggleSelectedWorkspace();
-                    Check(!live.IsVisible,"a second Alt+Space hides the selected partition");
+                    Check(live.IsVisible&&!live.Topmost&&Shell.DesktopBindingValid(live,host),"repeated Alt+Space returns the selected partition to the desktop without hiding it");
+                    Check(other.IsVisible&&!other.Topmost,"returning the selected partition leaves unselected partitions untouched");
+                    controller.ToggleSelectedWorkspace();
+                    Check(live.IsVisible&&!live.Topmost&&Shell.FloatingBindingValid(live),"Alt+Space can raise the partition again after returning it to the desktop");
+                    live.MiddleClick();Pump();
+                    Check(!live.IsVisible&&!live.Topmost,"middle-clicking the partition collapses it like a folder");
+                    Check(other.IsVisible&&!other.Topmost,"collapsing by middle click leaves unselected partitions untouched");
+                    controller.ToggleSelectedWorkspace();
+                    Check(live.IsVisible&&!live.Topmost&&Shell.FloatingBindingValid(live),"Alt+Space restores the workspace collapsed by middle click");
                     controller.ClearGroupSelection();
-                    Check(live.IsVisible&&!live.Topmost,"clearing workspace selection restores the desktop partition");
+                    Check(live.IsVisible&&!live.Topmost,"clearing workspace selection restores the desktop partition without hiding it");
+                    Check(Shell.DesktopBindingValid(live,host),"clearing selection restores Explorer ownership after floating");
+                    controller.Docked=false;
+                    controller.Windows.Remove(other);other.Close();
+                    store.Data.Groups.Remove(otherGroup);
                     controller.Windows.Remove(live);
                     store.Data.Groups.Remove(liveGroup);
                     store.Save();
                     InteractionTests.Native(live,host,Check);
+                    PageSwipeTests.Native(testRoot,Check);
                     DragTests.Native(testRoot,Check);
                     FileFeatureTests.Native(controller,Check);
                     ShellFeatureTests.Run(testRoot,controller,live,Check);
                     ProjectPluginTests.Native(testRoot,controller,live,Check);
                     WorkspaceSearchTests.Native(testRoot,Check);
                     WorkspacePanelTests.Native(testRoot,Check);
+                    UnifiedWorkspaceTests.Native(testRoot,Check);PartitionTabTests.Native(testRoot,Check);MultiSelectTests.Native(testRoot,Check);QuickSearchAndRenameTests.Native(testRoot,Check);AppIconSkinTests.Native(testRoot,Check);
+                    McpToolsTests.Native(testRoot,Check);
                     ComponentFeatureTests.Native(testRoot,Check);
                     ProductivityTests.Native(testRoot,live,Check);
                 }finally{live.Close();app.Shutdown();}

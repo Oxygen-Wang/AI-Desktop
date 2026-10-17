@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using System.Collections.Generic;
@@ -10,7 +10,7 @@ using System.Windows.Media.Imaging;
 namespace QiDesk {
 public static class ComponentFeatureTests {
     public static void Run(string root,Action<bool,string> check){
-        var store=new Store(Path.Combine(root,"component-tests"));store.Data.Groups.Clear();check(WidgetPlugins.Builtins().Select(p=>p.Kind).Distinct().Count()==13,"component library includes thirteen usable widget renderers including weather and NetEase Cloud Music");
+        var store=new Store(Path.Combine(root,"component-tests"));store.Data.Groups.Clear();check(new System.Collections.Generic.HashSet<string>(WidgetPlugins.Builtins().Select(p=>p.Kind)).SetEquals(WidgetPlugins.SupportedKinds),"component library includes fourteen usable widget renderers including desktop quick search");
         var track=NetEaseMusic.Split("夜曲 - 周杰伦");check(track.Length==2&&track[0]=="夜曲"&&track[1]=="周杰伦"&&NetEaseMusic.Split("纯音乐").Length==2&&NetEaseMusic.Split("纯音乐")[1]=="","NetEase Cloud Music now-playing parses title and artist from the client window title");check(WeatherService.Condition(0)=="晴朗"&&WeatherService.Condition(63)=="下雨"&&WeatherService.Condition(95)=="雷雨","weather card maps common forecast codes to readable Chinese conditions");
         check(Calc.Evaluate("2+3*4")=="14"&&Calc.Evaluate("(1+2)*3")=="9"&&Calc.Evaluate("10/4")=="2.5"&&Calc.Evaluate("6÷2")=="3"&&Calc.Evaluate("2+")==null&&Calc.Evaluate("1/0")==null,"calculator renderer evaluates arithmetic safely and rejects incomplete or undefined expressions");
         check(WidgetPlugins.HabitStreak(new[]{"2026-10-12","2026-10-13","2026-10-14"},new DateTime(2026,10,14))==3&&WidgetPlugins.HabitStreak(new[]{"2026-10-12","2026-10-13"},new DateTime(2026,10,14))==2&&WidgetPlugins.HabitStreak(new string[0],new DateTime(2026,10,14))==0,"habit renderer counts consecutive check-in days");

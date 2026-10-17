@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.IO.Pipes;
 using System.Linq;
@@ -10,8 +10,10 @@ namespace QiDesk {
 public static class McpSession {
     static string Text(Dictionary<string,object> map,string key){object value;return map.TryGetValue(key,out value)?Convert.ToString(value):"";}
     static Dictionary<string,object> Map(Dictionary<string,object> map,string key){object value;return map.TryGetValue(key,out value)?value as Dictionary<string,object>??new Dictionary<string,object>():new Dictionary<string,object>();}
-    static string Line(StreamReader input){var text=new StringBuilder();int c;while((c=input.Read())>=0){if(c=='\n')return text.ToString();if(c!='\r')text.Append((char)c);if(text.Length>65536)throw new InvalidDataException("Message too large.");}return text.Length==0?null:text.ToString();}
-    public static object Call(string pipeName,string name,Dictionary<string,object> args){using(var pipe=new NamedPipeClientStream(".",pipeName,PipeDirection.InOut,PipeOptions.Asynchronous)){pipe.Connect(2500);using(var input=new StreamReader(pipe,new UTF8Encoding(false),false,4096,true))using(var output=new StreamWriter(pipe,new UTF8Encoding(false),4096,true){AutoFlush=true}){output.WriteLine(Store.Json.Serialize(new {name=name,arguments=args}));var pending=Task.Run(()=>Line(input));if(!pending.Wait(12000))throw new Exception("QiDesk did not respond in time.");var result=Store.Json.DeserializeObject(pending.Result);var error=result as Dictionary<string,object>;if(error!=null&&error.ContainsKey("error"))throw new Exception(Convert.ToString(error["error"]));return result;}}}
+    static string Line(StreamReader input){var text=new StringBuilder();int c;while((c=input.Read())>=0){if(c=='\n')return text.ToString();if(c!='\r')text.Append((char)c);if(text.Length>2*1024*1024)throw new InvalidDataException("Message too large.");}return text.Length==0?null:text.ToString();}
+    public static object Call(string pipeName,string name,Dictionary<string,object> args){return Call(pipeName,name,args,12000);}
+    public static object Call(string pipeName,string name,Dictionary<string,object> args,int timeout){
+        using(var pipe=new NamedPipeClientStream(".",pipeName,PipeDirection.InOut,PipeOptions.Asynchronous)){pipe.Connect(2500);using(var input=new StreamReader(pipe,new UTF8Encoding(false),false,4096,true))using(var output=new StreamWriter(pipe,new UTF8Encoding(false),4096,true){AutoFlush=true}){output.WriteLine(Store.Json.Serialize(new {name=name,arguments=args}));var pending=Task.Run(()=>Line(input));if(!pending.Wait(Math.Max(2000,timeout)))throw new Exception("QiDesk did not respond in time.");var result=Store.Json.DeserializeObject(pending.Result);var error=result as Dictionary<string,object>;if(error!=null&&error.ContainsKey("error"))throw new Exception(Convert.ToString(error["error"]));return result;}}}
     public static int Serve(string pipeName,string workspace){
         bool initialized=false,rootsSupported=false,rootsDirty=false;DateTime rootsRequested=DateTime.MinValue;string client="MCP",rootRequest="";int sequence=0;
         using(var input=new StreamReader(Console.OpenStandardInput(),new UTF8Encoding(false)))using(var output=new StreamWriter(Console.OpenStandardOutput(),new UTF8Encoding(false)){AutoFlush=true}){
@@ -26,7 +28,7 @@ public static class McpSession {
                     else if(method=="ping")response=new {};
                     else if(!initialized)throw new Exception("Initialize the session first.");
                     else if(method=="tools/list")response=new {tools=McpBridge.Tools()};
-                    else if(method=="tools/call"){try{string name=Text(args,"name");if(name=="qidesk_sync_roots")throw new Exception("Internal workspace sync is not a public tool.");McpBridge.ValidateCall(args);var toolArgs=Map(args,"arguments");response=new {content=new[]{new {type="text",text=Store.Json.Serialize(Call(pipeName,name,toolArgs))}},isError=false};}catch(Exception ex){response=new {content=new[]{new {type="text",text=ex.Message}},isError=true};}}
+                    else if(method=="tools/call"){try{string name=Text(args,"name");if(name=="qidesk_sync_roots")throw new Exception("Internal workspace sync is not a public tool.");McpBridge.ValidateCall(args);var toolArgs=Map(args,"arguments");response=new {content=new[]{new {type="text",text=Store.Json.Serialize(Call(pipeName,name,toolArgs,name=="qidesk_layout_apply"?60000:12000))}},isError=false};}catch(Exception ex){response=new {content=new[]{new {type="text",text=ex.Message}},isError=true};}}
                     else{output.WriteLine(Store.Json.Serialize(new {jsonrpc="2.0",id=id,error=new {code=-32601,message="Method not found"}}));continue;}
                     output.WriteLine(Store.Json.Serialize(new {jsonrpc="2.0",id=id,result=response}));
                 }catch(Exception ex){output.WriteLine(Store.Json.Serialize(new {jsonrpc="2.0",id=id,error=new {code=-32602,message=ex.Message}}));}

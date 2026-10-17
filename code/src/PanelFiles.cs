@@ -10,20 +10,23 @@ public static class PanelFiles {
     public const int SearchLimit=2000;
     public const int SearchBudget=400000;
     // 在当前文件夹及其子目录里按名称匹配。遵循栖桌现有忽略规则与 .gitignore/.cursorignore。
-    public static string[] Search(State state,string root,string query,List<IgnoreRule> localRules=null){
+    public static string[] Search(State state,string root,string query,List<IgnoreRule> localRules=null,Group group=null,System.Threading.CancellationToken cancellation=default(System.Threading.CancellationToken)){
         var found=new List<string>();
         if(String.IsNullOrEmpty(query)||String.IsNullOrEmpty(root)||!Directory.Exists(root))return found.ToArray();
+        if(group==null&&localRules!=null)group=new Group(){Folder=root,IgnoreRules=localRules};
         var pending=new Queue<string>();pending.Enqueue(Path.GetFullPath(root));
         int visited=0;
         while(pending.Count>0&&found.Count<SearchLimit&&visited<SearchBudget){
+            cancellation.ThrowIfCancellationRequested();
             string current=pending.Dequeue();string[] entries;
             try{entries=Directory.GetFileSystemEntries(current);}catch{continue;}
             foreach(string path in entries){
+                cancellation.ThrowIfCancellationRequested();
                 if(++visited>SearchBudget)break;
                 try{if((File.GetAttributes(path)&FileAttributes.ReparsePoint)!=0)continue;}catch{continue;}
                 string name=Path.GetFileName(path);
                 if(name.Equals("desktop.ini",StringComparison.OrdinalIgnoreCase))continue;
-                if(Ignored(state,path,localRules))continue;
+                if(group==null?Ignored(state,path,localRules):PartitionIgnores.Ignored(state,path,group))continue;
                 if(name.IndexOf(query,StringComparison.OrdinalIgnoreCase)>=0)found.Add(path);
                 if(found.Count>=SearchLimit)break;
                 if(Directory.Exists(path))pending.Enqueue(path);
@@ -32,7 +35,7 @@ public static class PanelFiles {
         return found.ToArray();
     }
     public static bool Ignored(State state,string path,List<IgnoreRule> localRules=null){
-        return state.IgnoreRules.Any(r=>r.Matches(path))||(localRules!=null&&localRules.Any(r=>r.Matches(path)))||IgnoreFiles.Ignored(state,path,null);
+        return PartitionIgnores.Ignored(state,path,localRules==null?null:new Group(){IgnoreRules=localRules});
     }
     public static string Relative(string root,string path){
         try{
