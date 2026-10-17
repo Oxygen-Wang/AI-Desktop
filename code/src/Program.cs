@@ -33,7 +33,7 @@ public static class Program {
             if(args.Contains("--self-test")&&args.Contains("--quick-features"))return QuickSearchAndRenameTests.Verify(args.Contains("--native-test"));
             if(args.Contains("--self-test"))return Tests.Run(args.Contains("--native-test"));
 #endif
-            if(args.Any(a=>a.StartsWith("--layout-")))return LayoutCli.Run(args);
+            if(LayoutCli.Handles(args))return LayoutCli.Run(args);
             string shellAction=args.Contains("--organize-loose")?"--organize-loose":null;
             if(shellAction!=null&&DesktopShellActions.Signal(shellAction))return 0;
             bool render=args.Contains("--render")||args.Contains("--render-settings");
@@ -55,7 +55,7 @@ public static class Program {
                 if(render){window.Left=-20000;window.Top=-20000;window.WindowStartupLocation=WindowStartupLocation.Manual;}
                 app.Run(window);return 0;
             }
-        }catch(Exception ex){string log=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"startup-error.log");File.WriteAllText(log,ex.ToString());bool headless=args.Contains("--self-test")||args.Contains("--mcp")||args.Contains("--ai-serve")||args.Contains("--mcp-fixture")||args.Contains("--build-icon")||args.Contains("--icon-guard")||args.Contains("--test-icon-owner")||args.Any(a=>a.StartsWith("--render"))||args.Any(a=>a.StartsWith("--layout-"));if(!headless)MessageBox.Show(ex.Message,"栖桌启动失败");return 1;}
+        }catch(Exception ex){string log=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"startup-error.log");File.WriteAllText(log,ex.ToString());bool headless=args.Contains("--self-test")||args.Contains("--mcp")||args.Contains("--ai-serve")||args.Contains("--mcp-fixture")||args.Contains("--build-icon")||args.Contains("--icon-guard")||args.Contains("--test-icon-owner")||args.Any(a=>a.StartsWith("--render"))||LayoutCli.Handles(args);if(!headless)MessageBox.Show(ex.Message,"栖桌启动失败");return 1;}
     }
     static void Capture(Window window,string path){window.UpdateLayout();var bitmap=new RenderTargetBitmap((int)window.ActualWidth,(int)window.ActualHeight,96,96,PixelFormats.Pbgra32);bitmap.Render(window);var png=new PngBitmapEncoder();png.Frames.Add(BitmapFrame.Create(bitmap));using(var output=File.Create(path))png.Save(output);}
     static void CaptureFence(Controller controller,Group group,string filename){var fence=new FenceWindow(controller,group);fence.Left=-20000;fence.Top=-20000;fence.Show();fence.UpdateLayout();Thumbnails.RequestVisible(fence);Thumbnails.Drain(4000);Capture(fence,Path.Combine(AppDomain.CurrentDomain.BaseDirectory,filename));fence.Close();}
@@ -115,6 +115,7 @@ public static class Tests {
             RunBlock("StoreRecoveryTests",delegate{StoreRecoveryTests.Run(testRoot,Check);});
             RunBlock("CustomIconTests",delegate{CustomIconTests.Run(testRoot,Check);});
             RunBlock("AiSidecarTests",delegate{AiSidecarTests.Run(testRoot,Check);});
+            RunBlock("McpFeatureTests",delegate{McpFeatureTests.Run(testRoot,Check);});
             RunBlock("MultiSelectTests",delegate{MultiSelectTests.Run(testRoot,Check);});
             RunBlock("ComponentFeatureTests",delegate{ComponentFeatureTests.Run(testRoot,Check);});
             RunBlock("ProductivityTests",delegate{ProductivityTests.Run(testRoot,Check);});
@@ -160,6 +161,7 @@ public static class Tests {
             RunBlock("QuickSearchAndRenameTests.Native",delegate{QuickSearchAndRenameTests.Native(testRoot,Check);});
             RunBlock("AppIconSkinTests.Native",delegate{AppIconSkinTests.Native(testRoot,Check);});
             RunBlock("McpToolsTests.Native",delegate{McpToolsTests.Native(testRoot,Check);});
+            RunBlock("McpFeatureTests.Native",delegate{McpFeatureTests.Native(testRoot,Check);});
             RunBlock("ComponentFeatureTests.Native",delegate{ComponentFeatureTests.Native(testRoot,Check);});
             RunBlock("ProductivityTests.Native",delegate{ProductivityTests.Native(testRoot,live,Check);});
         }finally{live.Close();app.Shutdown();}

@@ -118,7 +118,15 @@ public static class Shell {
     [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern IntPtr RemoveProp(IntPtr window,string name);
     public static List<Rect> WorkingAreas(Window window){double scale=WindowScale(window);var result=new List<Rect>();foreach(var screen in System.Windows.Forms.Screen.AllScreens){var r=screen.WorkingArea;var area=new Rect(r.Left/scale,r.Top/scale,r.Width/scale,r.Height/scale);if(screen.Primary)result.Insert(0,area);else result.Add(area);}return result;}
     [DllImport("user32.dll")] static extern IntPtr GetParent(IntPtr h);
-    public static void Open(string path){try{Process.Start(new ProcessStartInfo(path){UseShellExecute=true});FileActivity.Record(path);}catch(Exception ex){MessageBox.Show(ex.Message,"打开失败");}}
-    public static void Reveal(string path){if(Directory.Exists(path))Open(path);else try{Process.Start(new ProcessStartInfo("explorer.exe","/select,"+FileSearch.Quote(path)){UseShellExecute=true});}catch(Exception ex){MessageBox.Show(ex.Message);}}
+    public static void Open(string path){Open(path,true);}
+    // interactive 为 false 时不弹窗，把失败原因交给调用方：MCP 需要把错误返回给 AI 而不是卡住一个管道线程。
+    public static void Open(string path,bool interactive){try{Process.Start(new ProcessStartInfo(path){UseShellExecute=true});FileActivity.Record(path);}catch(Exception ex){if(interactive)MessageBox.Show(ex.Message,"打开失败");else throw;}}
+    public static void Reveal(string path){Reveal(path,true);}
+    public static void Reveal(string path,bool interactive){if(Directory.Exists(path))Open(path,interactive);else RevealInExplorer(path,interactive);}
+    // interactive 为 false 时不弹窗：MCP 需要把失败原因返回给 AI，而不是卡住一个管道线程。
+    static void RevealInExplorer(string path,bool interactive){
+        try{Process.Start(new ProcessStartInfo("explorer.exe","/select,"+FileSearch.Quote(path)){UseShellExecute=true});}
+        catch(Exception ex){if(interactive)MessageBox.Show(ex.Message);else throw;}
+    }
 }
 }

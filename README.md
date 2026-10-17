@@ -26,7 +26,8 @@
 - 保存布局快照，支持恢复和撤销布局操作。
 - 提供应用图标皮肤与自定义显示图标，保留素材来源和许可说明。
 - 添加时钟、待办、番茄钟等桌面组件。
-- 可选连接 AI 服务生成整理建议，通过 MCP 提供桌面管理能力。
+- 可选连接 AI 服务生成整理建议。
+- 桌面管理能力通过 MCP 与命令行完整开放给 AI：读取布局、整理分区、把 SVG 生成图标并替换快捷方式图标、安装组件插件；布局操作可撤销，AI 改过什么有回执可查，工具清单与安全边界见 [AI 整理 Skill](code/skills/qidesk-organizer.md)。
 
 ## 使用方式
 
@@ -40,7 +41,7 @@
 
 本项目仍处于开发阶段，尚未发布稳定版。多显示器、不同 DPI、Explorer 重启及与其他桌面整理软件同时运行的行为，仍需持续验证。
 
-本仓库提供源码；构建产物、本机配置、用户桌面文件和研究资料不随源码提交。Everything 等外部程序需单独安装和配置。
+`code/` 包含应用源码、资源、测试、构建脚本及 Everything 搜索依赖，构建时自动附带搜索程序和接口文件。首次使用全盘搜索仍需启动 Everything 并完成索引设置；AI 等外部服务需自行配置。构建产物、本机配置、用户桌面文件和研究资料不随源码提交。
 
 ## 开发与文档
 
@@ -49,6 +50,7 @@
 - [交互说明](code/README.md)：桌面分区、工作区和文件操作。
 - [代码规则](CODE-RULES.md)：代码守卫与检查要求。
 - [AI 进程协议](code/AI-SIDECAR.md)：主程序与 AI 组件的通信约定。
+- [AI 整理 Skill](code/skills/qidesk-organizer.md)：MCP 工具清单、标准流程与安全边界。
 
 ## 第三方素材
 
@@ -57,3 +59,4 @@
 - [Fluent 界面图标许可](code/assets/fluent/LICENSE)
 - [应用图标皮肤来源与许可](code/assets/icon-skins/README.md)
 - [桌宠素材来源说明](code/assets/cat/SOURCE.md)
+- [Everything 搜索依赖与许可](code/vendor/everything/README.md)

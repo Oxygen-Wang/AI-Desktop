@@ -224,6 +224,8 @@ public sealed class WorkspacePanel : Window {
         if(data.PanelTabs.Count==0){string current=WorkspaceSelection.Current(data);if(!String.IsNullOrEmpty(current)&&Directory.Exists(current))data.PanelTabs.Add(PanelTab.OfFolder(current));}
         EnsureSessions();
     }
+    // MCP 增删面板标签后，若面板正开着就地重排，不必先关再开。
+    public void RefreshTabs(){LoadTabs();Refresh();}
     void EnsureSessions(){
         var data=controller.Store.Data;
         sessions.Clear();
@@ -343,7 +345,7 @@ public sealed class WorkspacePanel : Window {
     static Color TimedAccent(string color){try{return (Color)new BrushConverter().ConvertFromString(color);}catch{return Color.FromRgb(146,170,229);}}
     void Refresh(){
         if(closed)return;
-        RefreshTabs();
+        RedrawTabs();
         var data=controller.Store.Data;var tab=CurrentTab;
         titleText.Text="工作区面板";titleText.Visibility=data.PanelTabs.Count==0?Visibility.Visible:Visibility.Collapsed;
         if(tab==null){
@@ -390,7 +392,9 @@ public sealed class WorkspacePanel : Window {
         if(group==null)return null;
         try{return controller.Store.Items(group,"").ToArray();}catch{return new string[0];}
     }
-    void RefreshTabs(){
+    // 与公开的 RefreshTabs 分开：这一份带签名去重，只在标签集合真的变了时才重排，
+    // 避免每次保存状态都把整个标签栏拆了重建。MCP 增删标签走公开那个，强制重排。
+    void RedrawTabs(){
         if(closed)return;
         var data=controller.Store.Data;
         string signature=String.Join("|",data.PanelTabs.Select(t=>t.IsFolder?t.Folder:"#"+t.GroupId))+"#"+data.PanelIndex;

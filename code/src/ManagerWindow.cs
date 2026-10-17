@@ -58,6 +58,8 @@ public partial class ManagerWindow : Window {
         if(toggle&&workspacePanel.IsVisible){workspacePanel.Dismiss();return workspacePanel;}
         workspacePanel.Present(false,focus);pet_Touch();if(pet!=null)pet.NotifyPanelVisibility(workspacePanel.IsVisible);return workspacePanel;
     }
+    // 面板标签被 MCP 改动后调用：开着的面板立即按新标签重排。
+    public void RefreshWorkspacePanel(){if(workspacePanel!=null&&workspacePanel.IsVisible)workspacePanel.RefreshTabs();}
     public void NotifyPanelVisibility(bool visible){if(pet!=null)pet.NotifyPanelVisibility(visible);}
     public void OpenWorkspaceWithFolders(string[] folders){
         if(folders==null)return;

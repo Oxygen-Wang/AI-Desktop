@@ -29,3 +29,9 @@ Windows x64 桌面分区应用，使用 C# / WPF。运行 `build.ps1` 后，`../
 ## 开发
 
 `src/` 是应用源代码，`src/tests/` 是单独编译的测试代码。`build.ps1` 生成主程序、MCP 程序和测试程序到 `../dist/`。最新测试程序见 `../dist/latest-tests.txt`。
+
+主程序同时是命令行入口：`QiDesk.exe --call <任意 MCP 工具> --json '{...}'` 或 `--arg 键=值`，与 MCP 走同一套校验和实现，结果以 JSON 输出；`--build-icon <svg> <ico>` 不需要运行栖桌即可生成多尺寸图标。完整的工具面、标准流程和安全边界见 [skills/qidesk-organizer.md](skills/qidesk-organizer.md)。
+
+`assets/` 保存应用资源，`vendor/everything/` 保存全盘搜索需要的官方程序、DLL、ES、语言包与许可。构建时自动复制到输出目录，不依赖仓库外的 `tools/` 或参考项目。首次使用在“文件搜索”页启动并检查索引连接，依赖来源和使用说明见 [Everything 搜索依赖](vendor/everything/README.md)。
+
+对操作系统的一切读取都收拢在 [src/SystemAccess.cs](src/SystemAccess.cs)：桌面、公共桌面、图片、文档、最近使用、Program Files、数据目录以及 `QIDESK_*` 环境变量，只在这里访问，其他文件不直接调用 `Environment`。需要把位置换到别处（跑测试、便携运行）时，在 exe 旁放一个 `system.json` 即可，例如 `{"folders":{"Desktop":"D:\\Desk"},"variables":{"QIDESK_AI_KEY":"sk-..."}}`；没写的键继续跟随操作系统，文件损坏时按没有覆盖处理，不会挡住启动。自检见 [src/tests/SystemAccessTests.cs](src/tests/SystemAccessTests.cs)。

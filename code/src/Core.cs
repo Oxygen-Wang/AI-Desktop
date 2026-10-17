@@ -78,10 +78,6 @@ public class PanelTab {
     public bool IsFolder{get{return !String.IsNullOrEmpty(Folder);}}
 }
 public class State {
-    public bool ClipboardEnabled {get;set;}
-    public bool ClipboardPinned {get;set;}
-    public int ClipboardLimit {get;set;}
-    public string ClipboardSide {get;set;}
     public string ScreenshotFolder {get;set;}
     public bool UseEverything {get;set;}
     public bool QuickSearchAll {get;set;}
@@ -168,7 +164,7 @@ public class State {
     public List<PendingFileRename> PendingFileRenames {get;set;}
     // 桌面项自定义显示图标：路径 -> 图标来源，只影响栖桌内的显示。
     public Dictionary<string,CustomIcon> CustomIcons {get;set;}
-    public State(){PendingFileRenames=new List<PendingFileRename>();ComponentPacks=new List<ComponentPack>();ClipboardEnabled=false;ClipboardLimit=50;ClipboardSide="右侧";UseEverything=true;QuickSearchAll=true;EverythingPath="";ScreenshotFolder="";HideOriginalIcons=false;HideDesktopIcons=false;PushIconsAside=true;Version=8;Pages=3;AutoRules=false;DoubleClickHide=true;DesktopDragCreate=false;RollupEnabled=true;RollupOnDoubleClick=false;HoverExpand=true;PortalNavigate=true;SnapEnabled=true;SnapGrid=8;SnapGap=16;SnapshotKeepDays=3;LayoutMode="保持位置";LastLayoutKey="";ActiveLayoutArchiveId="";LastAppliedLayoutRevision=0;LastAppliedLayoutAt="";LayoutProfiles=new Dictionary<string,List<LayoutPlacement>>();AiEndpoint="http://127.0.0.1:11434";AiModel="qwen2.5:7b";Groups=new List<Group>();Rules=new List<Rule>();Excluded=new List<string>();HiddenDesktopItems=new List<string>();ManagedDesktopItems=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);IgnoreRules=new List<IgnoreRule>();WorkFolders=new List<string>();McpEnabled=true;WorkAutoIgnore=true;IgnoreFiles=new List<IgnoreFileSet>();AutoImportIgnoreFiles=true;AutoDetectWorkspaces=true;WorkSources=new Dictionary<string,string>();WorkConnectedAt=new Dictionary<string,string>();Widgets=new List<DesktopWidget>();Plugins=new List<WidgetPlugin>();IgnoredWorkFolders=new List<string>();PanelFolders=new List<string>();PanelTabs=new List<PanelTab>();SelectedWorkspaceGroups=new List<string>();PanelStyle=new Group(){Id="panel-style",Name="工作区面板",CornerStyle="方角",IconSize=44,BackgroundOpacity=.82,TintStrength=.55};PanelFollowGroupId="";PinnedGroupId="";PanelIndex=-1;PanelWidth=520;PanelHeight=620;PanelPositioned=false;PanelViewMode="图标";PanelIconSize=44;PanelIgnoreIcon="⊘";PetScale=1;PetVisible=true;PetSkin="默认猫";CustomIcons=new Dictionary<string,CustomIcon>(StringComparer.OrdinalIgnoreCase);}
+    public State(){PendingFileRenames=new List<PendingFileRename>();ComponentPacks=new List<ComponentPack>();UseEverything=true;QuickSearchAll=true;EverythingPath="";ScreenshotFolder="";HideOriginalIcons=false;HideDesktopIcons=false;PushIconsAside=true;Version=8;Pages=3;AutoRules=false;DoubleClickHide=true;DesktopDragCreate=false;RollupEnabled=true;RollupOnDoubleClick=false;HoverExpand=true;PortalNavigate=true;SnapEnabled=true;SnapGrid=8;SnapGap=16;SnapshotKeepDays=3;LayoutMode="保持位置";LastLayoutKey="";ActiveLayoutArchiveId="";LastAppliedLayoutRevision=0;LastAppliedLayoutAt="";LayoutProfiles=new Dictionary<string,List<LayoutPlacement>>();AiEndpoint="http://127.0.0.1:11434";AiModel="qwen2.5:7b";Groups=new List<Group>();Rules=new List<Rule>();Excluded=new List<string>();HiddenDesktopItems=new List<string>();ManagedDesktopItems=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);IgnoreRules=new List<IgnoreRule>();WorkFolders=new List<string>();McpEnabled=true;WorkAutoIgnore=true;IgnoreFiles=new List<IgnoreFileSet>();AutoImportIgnoreFiles=true;AutoDetectWorkspaces=true;WorkSources=new Dictionary<string,string>();WorkConnectedAt=new Dictionary<string,string>();Widgets=new List<DesktopWidget>();Plugins=new List<WidgetPlugin>();IgnoredWorkFolders=new List<string>();PanelFolders=new List<string>();PanelTabs=new List<PanelTab>();SelectedWorkspaceGroups=new List<string>();PanelStyle=new Group(){Id="panel-style",Name="工作区面板",CornerStyle="方角",IconSize=44,BackgroundOpacity=.82,TintStrength=.55};PanelFollowGroupId="";PinnedGroupId="";PanelIndex=-1;PanelWidth=520;PanelHeight=620;PanelPositioned=false;PanelViewMode="图标";PanelIconSize=44;PanelIgnoreIcon="⊘";PetScale=1;PetVisible=true;PetSkin="默认猫";CustomIcons=new Dictionary<string,CustomIcon>(StringComparer.OrdinalIgnoreCase);}
 }
 public class LayoutPlacement {public string Id {get;set;}public double X {get;set;}public double Y {get;set;}public double Width {get;set;}public double Height {get;set;}public string Edge {get;set;}public bool Rolled {get;set;}}
 public class Suggestion {
@@ -387,14 +383,14 @@ public class Store {
         s.ComponentPacks=s.ComponentPacks??new List<ComponentPack>();ComponentPackages.ValidateLibrary(s);
         CustomIcons.Validate(s);
         s.TutorialVersion=Math.Max(0,Math.Min(1,s.TutorialVersion));
-        if(s.Version<3){if(s.Version<2)s.RollupOnDoubleClick=false;s.PortalNavigate=true;s.HideOriginalIcons=true;s.ClipboardEnabled=false;s.ClipboardLimit=50;s.ClipboardSide="右侧";s.UseEverything=true;s.QuickSearchAll=true;s.Version=3;foreach(var g in s.Groups){if(g.Sort=="修改时间")g.SortDescending=true;if(g.TintStrength<.3)g.TintStrength=.55;}}
+        if(s.Version<3){if(s.Version<2)s.RollupOnDoubleClick=false;s.PortalNavigate=true;s.HideOriginalIcons=true;s.UseEverything=true;s.QuickSearchAll=true;s.Version=3;foreach(var g in s.Groups){if(g.Sort=="修改时间")g.SortDescending=true;if(g.TintStrength<.3)g.TintStrength=.55;}}
         if(s.Version<4){s.HideOriginalIcons=false;s.AutoRules=false;s.Version=4;}
         if(s.Version<5){foreach(var widget in s.Widgets)if(widget!=null)widget.CornerStyle="方角";s.Version=5;}
         if(s.Version<6){MigrateDesktopPanels(s);s.Version=6;}
         if(s.Version<7){OrganizeDefaultPanels(s,false,true);s.Version=7;}
         if(s.Version<8){ConsolidateDefaultPanels(s);s.Version=8;}
         MigrateWorkSections(s);
-        s.ClipboardLimit=Math.Max(10,Math.Min(200,s.ClipboardLimit));s.ClipboardSide=s.ClipboardSide=="左侧"?"左侧":"右侧";s.ScreenshotFolder=s.ScreenshotFolder??"";s.EverythingPath=s.EverythingPath??"";
+        s.ScreenshotFolder=s.ScreenshotFolder??"";s.EverythingPath=s.EverythingPath??"";
         IgnoreRule.Validate(s.IgnoreRules);
         s.LayoutProfiles=s.LayoutProfiles??new Dictionary<string,List<LayoutPlacement>>();
         s.ActiveLayoutArchiveId=s.ActiveLayoutArchiveId??"";s.LastAppliedLayoutRevision=Math.Max(0,s.LastAppliedLayoutRevision);s.LastAppliedLayoutAt=s.LastAppliedLayoutAt??"";
