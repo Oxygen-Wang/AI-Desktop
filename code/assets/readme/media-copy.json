@@ -1,0 +1,17 @@
+{
+  "brand": "栖桌 · AI Desktop",
+  "eyebrow": "把桌面，变成顺手的工作台",
+  "chapterLabels": ["01  桌面分区", "02  搜索全部", "03  动态桌宠"],
+  "titles": ["文件有归处，\n桌面有秩序。", "记得名字，\n就能找到。", "忙碌的桌面，\n也有一点温度。"],
+  "bodies": ["文件分区与文件夹映射\n常用资料收在同一处\n多个标签，随手切换", "Ctrl+Alt+Space 呼出搜索\n连接 Everything 全盘索引\nEnter 打开 · Ctrl+Enter 定位", "会眨眼、会呼吸、会摆尾\n点击唤起选中的桌面分区\n拖动安放，右键调整"],
+  "captions": ["真实分区组件 · 示例文件", "真实搜索组件 · 示例结果", "程序内置的矢量绘制与动画"],
+  "footer": "组件演示 · 示例数据 · 核心预览版 0.7.1",
+  "documentTab": "文档",
+  "pictureTab": "图片",
+  "documents": ["产品方案.pdf", "迭代计划.xlsx", "会议纪要.txt", "设计规范.md", "交付清单.pdf", "原型评审.pptx"],
+  "pictures": ["界面设计.png", "配色灵感.png", "封面草图.png"],
+  "queries": ["", "设", "设计"],
+  "searchMessage": "示例结果 · 文件名与路径搜索",
+  "petSkin": "毛绒三花",
+  "petCaption": "眨眼 / 呼吸 / 摆尾 / 睡眠"
+}

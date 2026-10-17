@@ -32,6 +32,7 @@ mindmap
 | 快捷方式图标 | [code/src/ShortcutIcons.cs](code/src/ShortcutIcons.cs)：只改 `.lnk` 自己记录的图标位置，可恢复默认 |
 | 自定义显示图标 | [code/src/CustomIcons.cs](code/src/CustomIcons.cs)：任意桌面项指定图标来源，只改栖桌内显示，重命名迁移、来源失效回退；渲染入口 `FileIconPresentation.Themed`（[AppIconSkins.cs](code/src/AppIconSkins.cs)） |
 | 应用图标皮肤 | [AppIconSkins.cs](code/src/AppIconSkins.cs) 共用匹配与渲染；[IconSkinSettings.cs](code/src/IconSkinSettings.cs) 提供预览和一键恢复；[素材与许可](code/assets/icon-skins/README.md) |
+| README 展示素材 | [code/assets/readme](code/assets/readme/README.md)：品牌概念图、真实组件演示动图、视频及可复用的媒体生成脚本，不参与应用运行打包 |
 | 全盘快捷搜索 | [QuickSearch.cs](code/src/QuickSearch.cs) 共用快捷栏与桌面组件；[EverythingSdk.cs](code/src/EverythingSdk.cs) 处理 Everything 异步消息查询，CLI 和有限本机搜索作为备用 |
 | Everything 运行依赖 | [code/vendor/everything](code/vendor/everything/README.md) 包含官方 x64 程序、语言包、SDK DLL、ES 及许可；[EverythingRuntime.cs](code/src/EverythingRuntime.cs) 统一查找路径，构建自动复制到 `dist/Everything/` |
 | 文件就地重命名 | [InlineFileName.cs](code/src/InlineFileName.cs) 显示编辑器；[FileRenaming.cs](code/src/FileRenaming.cs) 更新名称引用与持久化恢复记录，布局撤销保留真实文件的新路径 |
