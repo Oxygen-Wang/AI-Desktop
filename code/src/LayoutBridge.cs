@@ -7,10 +7,11 @@ using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace QiDesk {
-// 运行中的栖桌实例提供一个本地命令通道，供 CLI 和后续 MCP 工具共用。
-// 命令只作用于布局档案；真实文件仍由现有文件操作负责。
+// 运行中的栖桌实例提供一个本地命令通道，CLI 经此调用全部 MCP 工具。
+// 校验与实现都在 McpBridge.Execute，这里只包一层管道格式。
 public static class LayoutBridge {
     public static string PipeName{get{return "QiDesk-Layout-"+WindowsIdentity.GetCurrent().User.Value;}}
     static Controller controller;
@@ -51,14 +52,22 @@ public static class LayoutBridge {
         if(request==null)throw new InvalidDataException("请求为空");
         string command=Text(request,"name");
         var args=request.ContainsKey("arguments")?request["arguments"] as Dictionary<string,object>:null;
-        return Dispatch(controller,command,args??new Dictionary<string,object>());
+        // 文件搜索必须走异步通道：查询在后台线程完成，不占住 UI 线程，也不会死锁。
+        if(command=="qidesk_search_files"){
+            var done=new TaskCompletionSource<object>();
+            controller.Manager.Dispatcher.BeginInvoke(new Action(async delegate{
+                try{done.SetResult(new {ok=true,result=await McpBridge.ExecuteAsync(controller,request)});}
+                catch(Exception ex){done.SetException(ex);}
+            }));
+            return done.Task.GetAwaiter().GetResult();
+        }
+        return controller.Manager.Dispatcher.Invoke(new Func<object>(delegate{return Dispatch(controller,command,args??new Dictionary<string,object>());}));
     }
-    // CLI 与 MCP 共用这条分发路径：参数校验在 ValidateCall，命令实现在 LayoutCommands，
+    // CLI 与 MCP 共用这条分发路径：参数校验与全部工具的实现都在 McpBridge.Execute，
     // 桥接层只包一层管道格式，不再各写一套分支。
     internal static object Dispatch(Controller owner,string command,Dictionary<string,object> args){
         args=args??new Dictionary<string,object>();
-        McpBridge.ValidateCall(new Dictionary<string,object>{{"name",command},{"arguments",args}});
-        return new {ok=true,result=LayoutCommands.Execute(owner,command,args)};
+        return new {ok=true,result=McpBridge.Execute(owner,new Dictionary<string,object>{{"name",command},{"arguments",args}})};
     }
     static string ReadLine(StreamReader reader){
         var text=new StringBuilder();int c;

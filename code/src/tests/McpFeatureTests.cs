@@ -42,6 +42,12 @@ public static class McpFeatureTests {
         object result=McpBridge.Execute(controller,new Dictionary<string,object>{{"name",name},{"arguments",arguments}});
         return Store.Json.Deserialize<object>(Store.Json.Serialize(result));
     }
+    // CLI 管道走的就是 LayoutBridge.Dispatch：必须与 McpBridge.Execute 是同一条分发路径，
+    // 否则命令行对新工具组一律报"未知的布局工具"。
+    static object DispatchCall(Controller controller,string name,Dictionary<string,object> arguments){
+        object result=LayoutBridge.Dispatch(controller,name,arguments);
+        return Store.Json.Deserialize<object>(Store.Json.Serialize(result));
+    }
     static Dictionary<string,object> Args(params object[] pairs){
         var map=new Dictionary<string,object>();
         for(int i=0;i+1<pairs.Length;i+=2)map[Convert.ToString(pairs[i])]=pairs[i+1];
@@ -272,6 +278,12 @@ public static class McpFeatureTests {
         check(!Convert.ToBoolean(offline["aiConfigured"]),"get_status reports a missing AI endpoint");
         check(Convert.ToInt32(status["panelTabs"])==0&&Convert.ToInt32(status["customIcons"])==0,
             "get_status reports panel tabs and custom icons");
+        var viaCli=Map(DispatchCall(controller,"qidesk_get_status",new Dictionary<string,object>()));
+        check(Convert.ToBoolean(viaCli["ok"])&&Map(viaCli["result"]).ContainsKey("mcpEnabled"),
+            "layout bridge routes non-layout tools through the shared MCP dispatcher");
+        var cliIcons=Map(DispatchCall(controller,"qidesk_list_custom_icons",new Dictionary<string,object>()));
+        check(Convert.ToBoolean(cliIcons["ok"])&&cliIcons["result"] is object[],
+            "layout bridge routes icon tools through the shared MCP dispatcher");
         check(Fail(delegate{Call(controller,"qidesk_undo",new Dictionary<string,object>());})=="没有可撤销的修改。",
             "undo reports when there is nothing to undo");
         check(Fail(delegate{Call(controller,"qidesk_rename_item",Args("path",Path.Combine(root,"any.txt"),"name","x"));})=="Application window unavailable.",
