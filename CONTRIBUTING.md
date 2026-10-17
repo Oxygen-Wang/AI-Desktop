@@ -1,5 +1,26 @@
 # QiDesk 开发约定
 
+## 构建与验证
+
+在 Windows x64 的 PowerShell 中，从仓库根目录执行。需要系统提供 .NET Framework 4.x 编译器和 WPF 程序集，无需下载研究资料或本地辅助工具。
+
+```powershell
+& .\code\build.ps1
+& .\code\start.ps1
+```
+
+构建产物位于 `dist/`，包括主程序、MCP 程序、AI 组件和独立测试程序。启动脚本读取构建生成的最新版本指针。
+
+运行自测：
+
+```powershell
+$testExe = (Get-Content .\dist\latest-tests.txt).Trim()
+$testRun = Start-Process -FilePath $testExe -ArgumentList '--self-test' -PassThru -Wait
+$testRun.ExitCode
+```
+
+涉及 Win32 窗口、桌面挂接或 Shell 的修改，还应运行 `--self-test --native-test` 并检查真实交互。原生测试可能短暂显示窗口。
+
 ## 模块边界
 
 - `code/src/Core.cs` 保存状态模型、迁移与持久化入口。界面事件不得直接修改桌面文件属性。
@@ -18,7 +39,7 @@
 
 ## 版本管理
 
-产品源码、资源和构建脚本位于 `code/`，由 Git 跟踪；`dist/` 为生成物。每项独立改动使用描述行为的提交信息，不提交用户桌面文件或本机配置。
+产品源码、资源、测试和构建脚本位于 `code/`，连同根目录开发说明、Git 配置文件和 `.githooks/` 由 Git 跟踪。`dist/`、`output/`、`research/`、`references/`、`tools/` 和整理笔记不提交；本地资料仍可保留。每项独立改动使用描述行为的提交信息，不提交用户桌面文件或本机配置。
 
 提交钩子在仓库内，每个克隆启用一次：
 

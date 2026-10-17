@@ -14,11 +14,10 @@ SOURCE.json with upstream paths, resolved symlinks and content hashes.
 Application names/logos belong to their respective owners. The application
 matching table is maintained separately in pack.json.
 
-PNG derivatives were rendered from the SVG originals using sharp. Development
-scripts: tools/fetch-icon-skin-samples.ps1 and tools/prepare-icon-skins.cjs.
-These tools are not shipped as an application runtime dependency. The normal
-code/build.ps1 copies the prepared PNG packs, manifests and licenses into dist.
+PNG derivatives were rendered from the SVG originals using sharp. The prepared
+PNGs, manifests, source SVGs and licenses are included here; no conversion tool
+is required to build the application. code/build.ps1 copies the runtime packs
+and licenses into dist.
 
-Seelen UI and Shortcut Icon Changer are reference material only, under
-references/icon-skins. No code or executable from either project is bundled
+Seelen UI and Shortcut Icon Changer were reference material only. No code or executable from either project is bundled
 with QiDesk. The JSON format here is not a Seelen YAML importer.

@@ -1,6 +1,6 @@
 # 栖桌项目目录图
 
-`code/` 只放制作这款 App 所需的文件。编译结果、分享包、研究资料、参考程序和临时文件都放在 `code/` 外。
+Git 仓库只包含 `code/`、根目录开发说明和提交检查钩子。编译结果、分享包、研究资料、参考程序和临时文件只在本地保留。
 
 ```mermaid
 mindmap
@@ -14,12 +14,8 @@ mindmap
       code-budget.json 守卫基线
       start.ps1 启动脚本
       start-mcp.ps1 MCP 启动脚本
-    dist 本机编译结果
-    output 对外分享包
-    research 研究与批注
-    references 外部参考源码
-    tools 开发验证工具
-    tmp 临时资料
+    根目录 使用与开发说明
+    .githooks 提交检查
 ```
 
 ## `code/` 里的文件
@@ -42,17 +38,17 @@ mindmap
 | 分区忽略与设置布局 | [PartitionIgnores.cs](code/src/PartitionIgnores.cs) 统一全局、分区与组合分区规则；[IgnoreSettings.cs](code/src/IgnoreSettings.cs) 管理继承例外；[SettingsLayout.cs](code/src/SettingsLayout.cs) 负责设置页面重排 |
 | 小猫形象素材 | [code/assets/cat](code/assets/cat)：来自 `references/PathCat-main` 的两套状态图，编译时复制到 `dist/cat`；来源与授权见 [SOURCE.md](code/assets/cat/SOURCE.md) |
 | 组件与插件 | [code/src/Widgets.cs](code/src/Widgets.cs)、[code/src/ComponentPackages.cs](code/src/ComponentPackages.cs)、[code/plugins/examples](code/plugins/examples) |
-| MCP 与 AI | [McpBridge.cs](code/src/McpBridge.cs)、[McpSession.cs](code/src/McpSession.cs)；AI 独立进程：[AiCore.cs](code/src/AiCore.cs)（分类逻辑，纯数据进出）、[AiSidecar.cs](code/src/AiSidecar.cs)（`--ai-serve` NDJSON 服务端）、[AiClient.cs](code/src/AiClient.cs)（主程序侧进程与协议客户端），约定见 [research/AI-SIDECAR.md](research/AI-SIDECAR.md) |
+| MCP 与 AI | [McpBridge.cs](code/src/McpBridge.cs)、[McpSession.cs](code/src/McpSession.cs)；AI 独立进程：[AiCore.cs](code/src/AiCore.cs)（分类逻辑，纯数据进出）、[AiSidecar.cs](code/src/AiSidecar.cs)（`--ai-serve` NDJSON 服务端）、[AiClient.cs](code/src/AiClient.cs)（主程序侧进程与协议客户端），约定见 [AI-SIDECAR.md](code/AI-SIDECAR.md) |
 | 测试代码（单独编译） | [code/src/tests](code/src/tests)：只编译进 `Tests-QiDesk-*.exe`，正式程序与 MCP 产物不含测试入口 |
 | 编译、启动、图标 | [code/build.ps1](code/build.ps1)、[code/start.ps1](code/start.ps1)、[code/start-mcp.ps1](code/start-mcp.ps1)、[code/assets](code/assets) |
 | 代码守卫 | [code/check-code.ps1](code/check-code.ps1) 在构建后和提交前检查新增违规；基线 [code/code-budget.json](code/code-budget.json) 记录每个文件允许保留的额度；规矩与失败案例见 [CODE-RULES.md](CODE-RULES.md) |
 
-## `code/` 外面的文件
+## 不提交到 Git 的本地目录
 
-- [dist](dist)：编译生成的 EXE、最新版本指针和测试产物；无需放进源码目录。
-- [output](output)：可分享的压缩包和历史导出文件。
-- [research](research)：研究、真实反馈和历史评审素材；当前桌面分组批注见[这里](research/feedback/desktop-group-20261014.md)。
-- [references](references)、[tools](tools)：外部参考和开发验证工具。Everything 属于可选第三方程序，可在应用设置中指定安装位置。
-- [tmp](tmp)、[experimental](experimental)：历史临时资料和实验内容。
+- `dist/`：编译生成的 EXE、最新版本指针和测试产物。
+- `output/`：可分享的压缩包和历史导出文件。
+- `research/`、`整理/`、`策划/`：研究、需求和历史评审素材。
+- `references/`、`tools/`：外部参考和本地验证工具。Everything 属于可选第三方程序，可在应用设置中指定安装位置。
+- `tmp/`、`experimental/`：历史临时资料和实验内容。
 
-编译运行：在 PowerShell 中执行 `& D:\fences\code\build.ps1`，然后执行 `& D:\fences\code\start.ps1`。个人设置位于 `%LOCALAPPDATA%\QiDesk`，不在这个项目目录中。
+编译运行：在仓库根目录的 PowerShell 中执行 `& .\code\build.ps1`，然后执行 `& .\code\start.ps1`。个人设置位于 `%LOCALAPPDATA%\QiDesk`，不在这个项目目录中。

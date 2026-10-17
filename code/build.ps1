@@ -32,7 +32,7 @@ $taskMcpArguments=$arguments | ForEach-Object { if ($_ -eq '/target:winexe') { '
 & $compiler @taskMcpArguments
 if ($LASTEXITCODE -ne 0) { throw 'MCP compilation failed.' }
 # AI sidecar binary: the same sources compiled as a console exe. The app calls it
-# as a child process with --ai-serve. Boundary and protocol: research/AI-SIDECAR.md.
+# as a child process with --ai-serve. Boundary and protocol: code/AI-SIDECAR.md.
 $taskAiOutputPath=Join-Path $taskDist ('Ai-'+$taskOutputName)
 $taskAiArguments=$arguments | ForEach-Object { if ($_ -eq '/target:winexe') { '/target:exe' } elseif ($_ -like '/out:*') { '/out:'+$taskAiOutputPath } else { $_ } }
 & $compiler @taskAiArguments

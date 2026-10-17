@@ -1,35 +1,23 @@
 # Build output and machine-specific state.
 .tools/
 dist/
+output/
 local-data/
 tmp/
 backups/
 .workbuddy/
 
-# Third-party and decompiled sources. Reference material, not ours to version:
-# 124 MB of upstream repositories plus 155 MB of decompiled binaries. A checkout
-# without them still builds, which is the point of excluding them.
+# Only application source and supporting build documentation are versioned.
+# Keep local research, helper tools and planning notes off GitHub.
+/research/
+/tools/
+/整理/
+
+# Third-party references and experiments are not required for a source build.
 references/
 experimental/
-research/decompiled/
-research/evidence/
-research/ghidra-projects/
-research/ghidra-codex-projects/
-tools/reverse/upstream/
-tools/reverse/__pycache__/
-整理/code/
 
-# Third-party binaries and archives kept for local testing. They are downloads, not
-# sources: Everything ships its own licence and version, so vendoring it here would
-# mean maintaining someone else's release.
-tools/Everything-*/
-tools/ES-*/
-tools/everything-es/
-tools/*.zip
-research/acl-report/
-
-# Large binary planning material (PowerPoint). The written specifications next to
-# it are versioned; the decks are handed around outside the repository.
+# Local planning material is shared separately from application source.
 策划/
 大肥鱼README.md
 ~$*.pptx
