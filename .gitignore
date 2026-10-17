@@ -1,5 +1,6 @@
 ﻿.tools/
 dist/*.exe
+dist/
 dist/*.pdb
 dist/*.png
 research/evidence/*.json

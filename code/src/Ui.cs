@@ -1,11 +1,20 @@
 using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
 
 namespace QiDesk {
 public static class Ui {
+    public static void SetVerticalScrollBarOpacity(DependencyObject parent,double opacity){
+        for(int i=0;i<VisualTreeHelper.GetChildrenCount(parent);i++){
+            var child=VisualTreeHelper.GetChild(parent,i);
+            var bar=child as ScrollBar;
+            if(bar!=null&&bar.Orientation==Orientation.Vertical)bar.Opacity=opacity;
+            SetVerticalScrollBarOpacity(child,opacity);
+        }
+    }
     public static Brush Ink=new SolidColorBrush(Color.FromRgb(28,40,60));
     public static Brush Muted=new SolidColorBrush(Color.FromRgb(100,112,130));
     public static Brush Base=new SolidColorBrush(Color.FromRgb(233,239,245));

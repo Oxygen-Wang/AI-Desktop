@@ -103,6 +103,18 @@ public static class Tests {
                     Check(liveGroup.X==32&&liveGroup.Y==64,"native ownership events do not rewrite saved layout");
                     live.Hide();live.Show();Shell.Attach(live,host);Pump();Check(Shell.Bounds(live)==before&&Shell.DesktopBindingValid(live,host),"hide and show retain desktop binding and coordinates");
                     var view=new RenderTargetBitmap((int)live.ActualWidth,(int)live.ActualHeight,96,96,PixelFormats.Pbgra32);view.Render(live);byte[] pixels=new byte[320*240*4];view.CopyPixels(pixels,320*4,0);Check(pixels.Where((value,index)=>index%4==3).Any(value=>value>0),"bound transparent group renders nonempty content");
+                    store.Data.Groups.Add(liveGroup);
+                    controller.Windows.Add(live);
+                    controller.ToggleGroupSelection(liveGroup);
+                    controller.ToggleSelectedWorkspace();
+                    Check(live.IsVisible&&live.Topmost&&Shell.DesktopBindingValid(live,host),"Alt+Space raises the selected desktop partition without losing desktop ownership");
+                    controller.ToggleSelectedWorkspace();
+                    Check(!live.IsVisible,"a second Alt+Space hides the selected partition");
+                    controller.ClearGroupSelection();
+                    Check(live.IsVisible&&!live.Topmost,"clearing workspace selection restores the desktop partition");
+                    controller.Windows.Remove(live);
+                    store.Data.Groups.Remove(liveGroup);
+                    store.Save();
                     InteractionTests.Native(live,host,Check);
                     DragTests.Native(testRoot,Check);
                     FileFeatureTests.Native(controller,Check);

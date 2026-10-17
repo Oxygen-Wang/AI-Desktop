@@ -36,11 +36,15 @@ public class FenceWindow : Window {
     StackPanel groupTabs;
     ScrollViewer groupTabsScroll;
     TextBlock backIcon;
+    Border ignoreTarget;
+    Border selectTarget,unpinTarget,deleteTarget;
+    TextBlock selectGlyph;
     bool editingTab;
     StackPanel headerItems;
     int HeaderFont {get{return Math.Max(17,(int)Math.Round(Group.LabelSize));}}
     Group ViewGroup {get{var selected=controller.Store.Data.Groups.FirstOrDefault(g=>g.Id==Group.ActiveGroupId&&g.HostGroupId==Group.Id);return selected??Group;}}
-    bool IsFolderPanel {get{return ViewGroup.Kind=="文件夹"||ViewGroup.Folders.Count>0;}}
+    Group FolderGroup {get{return Group.Folders.Count>0?Group:ViewGroup;}}
+    bool IsFolderPanel {get{return FolderGroup.Kind=="文件夹"||FolderGroup.Folders.Count>0;}}
     public bool Docked;
     public FenceWindow(Controller owner,Group group) {
         controller=owner;Group=group;
@@ -51,14 +55,43 @@ public class FenceWindow : Window {
         var grid=new Grid();grid.RowDefinitions.Add(new RowDefinition(){Height=new GridLength(42)});grid.RowDefinitions.Add(new RowDefinition(){Height=GridLength.Auto});grid.RowDefinitions.Add(new RowDefinition(){Height=new GridLength(1,GridUnitType.Star)});
         var header=new Grid(){Background=Brushes.Transparent,Margin=new Thickness(12,6,8,4)};
         header.ColumnDefinitions.Add(new ColumnDefinition());
+        header.ColumnDefinitions.Add(new ColumnDefinition(){Width=GridLength.Auto});
+        header.ColumnDefinitions.Add(new ColumnDefinition(){Width=GridLength.Auto});
+        header.ColumnDefinitions.Add(new ColumnDefinition(){Width=GridLength.Auto});
+        header.ColumnDefinitions.Add(new ColumnDefinition(){Width=GridLength.Auto});
         heading=Ui.Text(group.Name,15,Ui.DesktopInk);heading.FontWeight=FontWeights.SemiBold;heading.VerticalAlignment=VerticalAlignment.Center;heading.Margin=new Thickness(0,5,0,0);
         headerItems=new StackPanel(){Orientation=Orientation.Horizontal,ClipToBounds=true};
         backIcon=Ui.Text("←",23,Ui.DesktopInk);backIcon.Cursor=Cursors.Hand;backIcon.Margin=new Thickness(0,0,10,0);backIcon.Visibility=Visibility.Collapsed;backIcon.ToolTip="返回上一层";
         backIcon.MouseLeftButtonDown+=delegate(object sender,MouseButtonEventArgs e){if(previewPath!=null)ClosePreview();else NavigateBack();e.Handled=true;};
         headerItems.Children.Add(backIcon);headerItems.Children.Add(heading);
         groupTabs=new StackPanel(){Orientation=Orientation.Horizontal,Margin=new Thickness(8,0,0,0)};
-        groupTabsScroll=new ScrollViewer(){Content=groupTabs,HorizontalScrollBarVisibility=ScrollBarVisibility.Auto,VerticalScrollBarVisibility=ScrollBarVisibility.Disabled,MaxWidth=250};
+        groupTabsScroll=new ScrollViewer(){Content=groupTabs,HorizontalScrollBarVisibility=ScrollBarVisibility.Hidden,VerticalScrollBarVisibility=ScrollBarVisibility.Disabled,MaxWidth=220};
+        groupTabsScroll.PreviewMouseWheel+=delegate(object s,MouseWheelEventArgs e){groupTabsScroll.ScrollToHorizontalOffset(groupTabsScroll.HorizontalOffset-Math.Sign(e.Delta)*90);e.Handled=true;};
         headerItems.Children.Add(groupTabsScroll);header.Children.Add(headerItems);
+        var ignoreGlyph=Ui.Text("⊘",17,Ui.DesktopMuted);ignoreGlyph.Margin=new Thickness(0);ignoreGlyph.VerticalAlignment=VerticalAlignment.Center;ignoreGlyph.HorizontalAlignment=HorizontalAlignment.Center;
+        ignoreTarget=new Border(){Child=ignoreGlyph,Width=28,Height=28,Background=Brushes.Transparent,BorderBrush=Ui.Brush(group.Color),BorderThickness=new Thickness(1),CornerRadius=new CornerRadius(7),AllowDrop=true,Cursor=Cursors.Hand,ToolTip="拖入项目，忽略当前分区或文件夹标签",Opacity=0,IsHitTestVisible=false};
+        selectGlyph=Ui.Text("○",18,Ui.DesktopMuted);selectGlyph.HorizontalAlignment=HorizontalAlignment.Center;selectGlyph.VerticalAlignment=VerticalAlignment.Center;
+        selectTarget=new Border(){Child=selectGlyph,Width=28,Height=28,Background=Brushes.Transparent,CornerRadius=new CornerRadius(7),Cursor=Cursors.Hand,ToolTip="选择此工作区；Ctrl＋左键可多选",Opacity=0,IsHitTestVisible=false};
+        selectTarget.MouseLeftButtonDown+=delegate(object s,MouseButtonEventArgs e){e.Handled=true;controller.ToggleGroupSelection(Group);};
+        Grid.SetColumn(selectTarget,1);header.Children.Add(selectTarget);
+        var unpinGlyph=Ui.Text("⌖",17,Ui.DesktopMuted);unpinGlyph.HorizontalAlignment=HorizontalAlignment.Center;unpinGlyph.VerticalAlignment=VerticalAlignment.Center;
+        unpinTarget=new Border(){Child=unpinGlyph,Width=28,Height=28,Background=Brushes.Transparent,CornerRadius=new CornerRadius(7),Cursor=Cursors.Hand,ToolTip="从工作区选择中移除；桌面分区保留",Opacity=0,IsHitTestVisible=false};
+        unpinTarget.MouseLeftButtonDown+=delegate(object s,MouseButtonEventArgs e){e.Handled=true;if(Selected)controller.ToggleGroupSelection(Group);};
+        Grid.SetColumn(unpinTarget,2);header.Children.Add(unpinTarget);
+        Grid.SetColumn(ignoreTarget,3);header.Children.Add(ignoreTarget);
+        var deleteGlyph=Ui.Text("×",21,Ui.DesktopMuted);deleteGlyph.HorizontalAlignment=HorizontalAlignment.Center;deleteGlyph.VerticalAlignment=VerticalAlignment.Center;
+        deleteTarget=new Border(){Child=deleteGlyph,Width=28,Height=28,Background=Brushes.Transparent,CornerRadius=new CornerRadius(7),Cursor=Cursors.Hand,ToolTip="删除此分区；可在管理面板撤销",Opacity=0,IsHitTestVisible=false};
+        deleteTarget.MouseLeftButtonDown+=delegate(object s,MouseButtonEventArgs e){e.Handled=true;if(controller.Manager!=null)controller.Manager.DeleteTabGroup(Group);};
+        Grid.SetColumn(deleteTarget,4);header.Children.Add(deleteTarget);
+        Action<bool> showHeaderActions=delegate(bool visible){foreach(var target in new[]{selectTarget,unpinTarget,ignoreTarget,deleteTarget}){target.Opacity=visible?1:0;target.IsHitTestVisible=visible;}};
+        header.MouseEnter+=delegate{showHeaderActions(true);};
+        header.MouseLeave+=delegate{showHeaderActions(false);};
+        header.DragEnter+=delegate{showHeaderActions(true);};
+        header.DragLeave+=delegate{if(!header.IsMouseOver)showHeaderActions(false);};
+        ignoreTarget.MouseLeftButtonDown+=delegate(object s,MouseButtonEventArgs e){e.Handled=true;ignoreTarget.ContextMenu=BuildIgnoreMenu();ignoreTarget.ContextMenu.IsOpen=true;};
+        ignoreTarget.ContextMenu=new ContextMenu();ignoreTarget.ContextMenuOpening+=delegate{ignoreTarget.ContextMenu=BuildIgnoreMenu();};
+        ignoreTarget.DragOver+=delegate(object s,DragEventArgs e){e.Effects=Functions.DragPaths(e.Data)!=null?DragDropEffects.Link:DragDropEffects.None;e.Handled=true;};
+        ignoreTarget.Drop+=delegate(object s,DragEventArgs e){e.Handled=true;IgnoreDropped(Functions.DragPaths(e.Data));};
         header.MouseLeftButtonDown+=delegate(object s,MouseButtonEventArgs e){
             DependencyObject part=e.OriginalSource as DependencyObject;while(part!=null&&part!=header){if(part is ButtonBase||part is TextBox)return;part=part is Visual?VisualTreeHelper.GetParent(part):LogicalTreeHelper.GetParent(part);}
             if((Keyboard.Modifiers&ModifierKeys.Control)!=0){controller.ToggleGroupSelection(Group);e.Handled=true;return;}
@@ -70,18 +103,20 @@ public class FenceWindow : Window {
         header.MouseRightButtonDown+=delegate(object s,MouseButtonEventArgs e){if(moving){transferPageArmed=true;e.Handled=true;}};
         header.MouseLeftButtonUp+=delegate(object s,MouseButtonEventArgs e){if(!moving)return;Point drop=PointToScreen(e.GetPosition(this));moving=false;header.ReleaseMouseCapture();if(Math.Abs(Left-startX)+Math.Abs(Top-startY)<6){if(e.OriginalSource==heading&&Group.ActiveGroupId!=Group.Id)SelectGroup(Group);return;}if(controller.TryMergeGroup(Group,drop,this))return;if(!controller.TransferGroupPage(Group,Left-startX,transferPageArmed,new Point(Left,Top),Shell.WorkingAreas(this)))SaveBounds();};
         scroll=new ScrollViewer(){Content=tiles,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,Margin=new Thickness(6,0,6,12)};
-        scroll.Loaded+=delegate{SetScrollOpacity(scroll,scroll.IsMouseOver?1:0);};
-        scroll.MouseEnter+=delegate{SetScrollOpacity(scroll,1);};
-        scroll.MouseLeave+=delegate{SetScrollOpacity(scroll,0);};
+        scroll.Loaded+=delegate{Ui.SetVerticalScrollBarOpacity(scroll,scroll.IsMouseOver?1:0);};
+        scroll.MouseEnter+=delegate{Ui.SetVerticalScrollBarOpacity(scroll,1);};
+        scroll.MouseLeave+=delegate{Ui.SetVerticalScrollBarOpacity(scroll,0);};
         titlePlate=new Border(){Child=header,CornerRadius=new CornerRadius(14,14,6,6),Margin=new Thickness(3),Background=new SolidColorBrush(Color.FromArgb(100,18,27,42))};
         Grid.SetRow(scroll,2);grid.Children.Add(titlePlate);grid.Children.Add(scroll);
         tabBar=new StackPanel(){Orientation=Orientation.Horizontal};
         {
-            EnsureSessions();tabsScroll=new ScrollViewer(){Content=tabBar,HorizontalScrollBarVisibility=ScrollBarVisibility.Auto,VerticalScrollBarVisibility=ScrollBarVisibility.Disabled,Margin=new Thickness(10,0,4,0),MaxWidth=160,Visibility=IsFolderPanel?Visibility.Visible:Visibility.Collapsed};
+            EnsureSessions();tabsScroll=new ScrollViewer(){Content=tabBar,HorizontalScrollBarVisibility=ScrollBarVisibility.Hidden,VerticalScrollBarVisibility=ScrollBarVisibility.Disabled,Margin=new Thickness(10,0,4,0),MaxWidth=420,Visibility=IsFolderPanel?Visibility.Visible:Visibility.Collapsed};
+            tabsScroll.PreviewMouseWheel+=delegate(object s,MouseWheelEventArgs e){tabsScroll.ScrollToHorizontalOffset(tabsScroll.HorizontalOffset-Math.Sign(e.Delta)*90);e.Handled=true;};
             tabsScroll.AllowDrop=true;
             tabsScroll.DragOver+=delegate(object s,DragEventArgs e){e.Effects=Functions.DragPaths(e.Data)!=null?DragDropEffects.Link:DragDropEffects.None;e.Handled=true;};
             tabsScroll.Drop+=delegate(object s,DragEventArgs e){e.Handled=true;AddFolders(Functions.DragPaths(e.Data));};
             headerItems.Children.Add(tabsScroll);
+            headerItems.Children.Remove(groupTabsScroll);headerItems.Children.Add(groupTabsScroll);
         }
         workTabs=new StackPanel(){Orientation=Orientation.Horizontal,Margin=new Thickness(10,0,0,0)};headerItems.Children.Add(workTabs);
         header.AllowDrop=true;
@@ -89,7 +124,7 @@ public class FenceWindow : Window {
         header.Drop+=delegate(object s,DragEventArgs e){e.Handled=true;AddFolders(Functions.DragPaths(e.Data));};
         resize=AddResizeHandle(grid,HorizontalAlignment.Right,16,Cursors.SizeNWSE,1,group.Color);
         AddResizeHandle(grid,HorizontalAlignment.Left,16,Cursors.SizeNESW,-1,group.Color);
-        AddResizeHandle(grid,HorizontalAlignment.Center,96,Cursors.SizeNS,0,group.Color);
+        AddResizeHandle(grid,HorizontalAlignment.Center,64,Cursors.SizeNS,0,group.Color);
         frame.Child=grid;Content=frame;AllowDrop=true;
         PreviewMouseWheel+=delegate(object sender,MouseWheelEventArgs e){if((Keyboard.Modifiers&ModifierKeys.Control)==0)return;e.Handled=true;string before=ViewGroup.ViewMode+ViewGroup.IconSize;controller.Store.Checkpoint();int steps=Math.Max(1,Math.Abs(e.Delta)/120);for(int i=0;i<Math.Min(steps,10);i++)FilePresentation.Zoom(ViewGroup,Math.Sign(e.Delta));if(before!=ViewGroup.ViewMode+ViewGroup.IconSize){lastSignature=null;controller.SaveAndRefresh(false);}};
         PreviewKeyDown+=delegate(object sender,KeyEventArgs e){Key key=e.Key==Key.System?e.SystemKey:e.Key;if(Selected){if(key==Key.Enter){controller.PopOutSelectedGroups();e.Handled=true;return;}if(key==Key.Escape){controller.ClearGroupSelection();e.Handled=true;return;}}if(portal!=null&&(Keyboard.Modifiers&ModifierKeys.Alt)!=0&&(key==Key.Left||key==Key.Up)){if(key==Key.Left){portal.Back();lastSignature=null;Refresh();}else NavigateBack();e.Handled=true;return;}if(e.Key==Key.F5){lastSignature=null;Refresh();e.Handled=true;}};
@@ -116,7 +151,37 @@ public class FenceWindow : Window {
         handle.MouseEnter+=delegate{handle.Opacity=.5;};handle.MouseLeave+=delegate{handle.Opacity=.08;};handle.Opacity=.08;
         handle.DragCompleted+=delegate{SaveBounds();};return handle;
     }
-    static void SetScrollOpacity(DependencyObject parent,double opacity){for(int i=0;i<VisualTreeHelper.GetChildrenCount(parent);i++){var child=VisualTreeHelper.GetChild(parent,i);var bar=child as ScrollBar;if(bar!=null&&bar.Orientation==Orientation.Vertical)bar.Opacity=opacity;SetScrollOpacity(child,opacity);}}
+    List<IgnoreRule> CurrentIgnoreRules(){
+        var viewed=ViewGroup;
+        if(portal==null||viewed.FolderIndex<0||viewed.FolderIndex>=viewed.Folders.Count)return viewed.IgnoreRules;
+        string folder=viewed.Folders[viewed.FolderIndex];List<IgnoreRule> rules;
+        if(!viewed.FolderIgnoreRules.TryGetValue(folder,out rules)){rules=new List<IgnoreRule>();viewed.FolderIgnoreRules[folder]=rules;}
+        return rules;
+    }
+    ContextMenu BuildIgnoreMenu(){
+        var menu=new ContextMenu();var rules=CurrentIgnoreRules();var global=controller.Store.Data.IgnoreRules;
+        menu.Items.Add(new MenuItem(){Header="全局规则 · "+global.Count+" 条",IsEnabled=false});
+        foreach(var rule in global.Take(12).ToArray()){var current=rule;menu.Items.Add(Ui.Menu("取消全局忽略 · "+current.Pattern,delegate{global.Remove(current);controller.Store.Save();lastSignature=null;Refresh();}));}
+        menu.Items.Add(new Separator());
+        menu.Items.Add(new MenuItem(){Header="当前分区 · "+(portal==null?ViewGroup.Name:FolderLabel(ViewGroup.Folders[ViewGroup.FolderIndex]))+" · "+rules.Count+" 条",IsEnabled=false});
+        foreach(var rule in rules.Take(12).ToArray()){var current=rule;menu.Items.Add(Ui.Menu("取消当前忽略 · "+current.Pattern,delegate{rules.Remove(current);controller.Store.Save();lastSignature=null;Refresh();}));}
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Ui.Menu("编辑全部忽略规则与导入文件",delegate{if(controller.Manager!=null)controller.Manager.ShowIgnoreRules(ViewGroup);}));
+        return menu;
+    }
+    void IgnoreDropped(string[] paths){
+        if(paths==null)return;
+        var rules=CurrentIgnoreRules();var pending=new List<IgnoreRule>();
+        foreach(string path in paths){
+            if(!Store.Exists(path)||PanelFiles.HasExactIgnore(rules.Concat(pending),path))continue;
+            pending.Add(PanelFiles.MakeIgnoreRule(path));
+        }
+        if(pending.Count==0)return;
+        try{IgnoreRule.Validate(rules.Concat(pending).ToList());}
+        catch(Exception ex){if(controller.Manager!=null)controller.Manager.SetStatus("忽略规则未添加："+ex.Message);return;}
+        controller.Store.Checkpoint();rules.AddRange(pending);controller.Store.Save();lastSignature=null;Refresh();
+        if(controller.Manager!=null)controller.Manager.SetStatus("已在当前标签忽略 "+pending.Count+" 项；点击右上角忽略图标可撤销。");
+    }
     void RenameGroup(Group target){
         if(target==null)return;var label=target==Group?(TextBlock)heading:null;
         if(label==null)return;
@@ -131,7 +196,15 @@ public class FenceWindow : Window {
         Point free;var obstacles=controller.Store.Data.Groups.Where(g=>g.Id!=Group.Id&&g.Page==Group.Page&&String.IsNullOrEmpty(g.HostGroupId)).Cast<Group>().Concat(controller.Store.Data.Widgets.Where(w=>w.Page==Group.Page));if(GroupArrangement.NearestFree(Group,obstacles,Shell.WorkingAreas(this),Math.Max(8,controller.Store.Data.SnapGap),out free)){Group.X=free.X;Group.Y=free.Y;}else{Group.X=oldX;Group.Y=oldY;Group.Width=oldWidth;Group.Height=oldHeight;Group.Edge=oldEdge;}
         ApplyBounds();controller.SaveAndRefresh(false);
     }
-    void ApplyBounds(){updating=true;bool collapsed=Group.Rolled&&controller.Store.Data.RollupEnabled&&!hoverExpanded;Left=Group.X;Width=Group.Width;Height=collapsed?42:Group.Height;Top=Group.Edge=="bottom"&&!collapsed?Group.Y+42-Height:Group.Y;Opacity=1;scroll.Visibility=collapsed?Visibility.Collapsed:Visibility.Visible;if(tabsScroll!=null)tabsScroll.Visibility=collapsed?Visibility.Collapsed:Visibility.Visible;if(workTabs!=null)workTabs.Visibility=collapsed?Visibility.Collapsed:Visibility.Visible;updating=false;UpdateTitle();}
+    void ApplyBounds(){
+        updating=true;bool collapsed=Group.Rolled&&controller.Store.Data.RollupEnabled&&!hoverExpanded;
+        Left=Group.X;Width=Group.Width;Height=collapsed?42:Group.Height;Top=Group.Edge=="bottom"&&!collapsed?Group.Y+42-Height:Group.Y;Opacity=1;
+        double tabSpace=Math.Max(120,Group.Width-160);bool hasMembers=controller.Store.Data.Groups.Any(g=>g.HostGroupId==Group.Id);
+        if(tabsScroll!=null){tabsScroll.MaxWidth=hasMembers?Math.Max(120,tabSpace*.62):tabSpace;tabsScroll.Visibility=collapsed?Visibility.Collapsed:Visibility.Visible;}
+        if(groupTabsScroll!=null)groupTabsScroll.MaxWidth=hasMembers?Math.Max(100,tabSpace*.38):0;
+        scroll.Visibility=collapsed?Visibility.Collapsed:Visibility.Visible;if(workTabs!=null)workTabs.Visibility=collapsed?Visibility.Collapsed:Visibility.Visible;
+        updating=false;UpdateTitle();
+    }
     void UpdateTitle(){bool tabs=controller.Store.Data.Groups.Any(g=>g.HostGroupId==Group.Id);heading.Visibility=(Group.Kind=="文件夹"&&String.IsNullOrEmpty(Group.Folder)||tabs)?Visibility.Collapsed:Group.TitleMode=="从不"?Visibility.Hidden:Group.TitleMode=="鼠标悬停"&&!IsMouseOver?Visibility.Hidden:Visibility.Visible;}
     public void Refresh(){
         heading.Text=Group.Name+(String.IsNullOrEmpty(Group.Folder)?"":"  ↗");Title=Group.Name;
@@ -157,8 +230,9 @@ public class FenceWindow : Window {
     void SelectGroup(Group selected){if(selected==null)return;previewPath=null;scroll.Content=tiles;Group.ActiveGroupId=selected.Id;EnsureSessions();lastSignature=null;controller.Store.Save();Refresh();}
     void RefreshGroupTabs(){
         if(editingTab)return;groupTabs.Children.Clear();var members=controller.Store.Data.Groups.Where(g=>g.HostGroupId==Group.Id).ToArray();groupTabsScroll.Visibility=members.Length==0?Visibility.Collapsed:Visibility.Visible;
-        if(members.Length>0){var own=Ui.Text(Group.Name,HeaderFont,Group.ActiveGroupId==Group.Id?Ui.DesktopInk:Ui.DesktopMuted);own.FontWeight=FontWeights.SemiBold;own.Margin=new Thickness(7,2,7,2);var ownTab=new Border(){Child=own,Cursor=Cursors.Hand,BorderBrush=Ui.Brush(Group.Color),BorderThickness=new Thickness(0,0,0,Group.ActiveGroupId==Group.Id?2:0),Margin=new Thickness(0,0,4,0)};ownTab.MouseLeftButtonDown+=delegate(object s,MouseButtonEventArgs e){e.Handled=true;if(e.ClickCount==2){EditTabName(Group,ownTab);return;}SelectGroup(Group);};groupTabs.Children.Add(ownTab);}
-        foreach(var member in members){Group selected=member;var label=Ui.Text(member.Name,HeaderFont,Ui.DesktopInk);label.FontWeight=FontWeights.SemiBold;label.Margin=new Thickness(7,2,2,2);var close=Ui.Text("×",12,Ui.DesktopMuted);close.Margin=new Thickness(2,2,6,2);close.Cursor=Cursors.Hand;close.MouseLeftButtonDown+=delegate(object s,MouseButtonEventArgs e){e.Handled=true;controller.DetachGroup(Group,selected);};var row=new StackPanel(){Orientation=Orientation.Horizontal};row.Children.Add(label);row.Children.Add(close);var tab=new Border(){Child=row,Cursor=Cursors.Hand,Background=member.Id==Group.ActiveGroupId?new SolidColorBrush(Color.FromArgb(60,220,235,250)):Brushes.Transparent,BorderBrush=Ui.Brush(Group.Color),BorderThickness=new Thickness(0,0,0,member.Id==Group.ActiveGroupId?2:0),Margin=new Thickness(0,0,4,0)};
+        if(members.Length>0&&Group.Folders.Count==0){var own=Ui.Text(Group.Name,HeaderFont,Group.ActiveGroupId==Group.Id?Ui.DesktopInk:Ui.DesktopMuted);own.FontWeight=FontWeights.SemiBold;own.Margin=new Thickness(7,2,7,2);var ownTab=new Border(){Child=own,Cursor=Cursors.Hand,BorderBrush=Ui.Brush(Group.Color),BorderThickness=new Thickness(0,0,0,Group.ActiveGroupId==Group.Id?2:0),Margin=new Thickness(0,0,4,0)};ownTab.MouseLeftButtonDown+=delegate(object s,MouseButtonEventArgs e){e.Handled=true;if(e.ClickCount==2){EditTabName(Group,ownTab);return;}SelectGroup(Group);};groupTabs.Children.Add(ownTab);}
+        foreach(var member in members){Group selected=member;var label=Ui.Text(member.Name,HeaderFont,Ui.DesktopInk);label.FontWeight=FontWeights.SemiBold;label.Margin=new Thickness(7,2,2,2);var close=Ui.Text("×",12,Ui.DesktopMuted);close.Margin=new Thickness(2,2,6,2);close.Cursor=Cursors.Hand;close.Opacity=0;close.IsHitTestVisible=false;close.MouseLeftButtonDown+=delegate(object s,MouseButtonEventArgs e){e.Handled=true;controller.DetachGroup(Group,selected);};var row=new StackPanel(){Orientation=Orientation.Horizontal};row.Children.Add(label);row.Children.Add(close);var tab=new Border(){Child=row,Cursor=Cursors.Hand,Background=Brushes.Transparent,BorderBrush=Ui.Brush(Group.Color),BorderThickness=new Thickness(0,0,0,member.Id==Group.ActiveGroupId?2:0),Margin=new Thickness(0,0,4,0)};
+            tab.MouseEnter+=delegate{close.Opacity=1;close.IsHitTestVisible=true;};tab.MouseLeave+=delegate{close.Opacity=0;close.IsHitTestVisible=false;};
             tab.MouseLeftButtonDown+=delegate(object s,MouseButtonEventArgs e){e.Handled=true;if(e.ClickCount==2){EditTabName(selected,tab);return;}SelectGroup(selected);};
             var menu=new ContextMenu();menu.Items.Add(Ui.Menu("切换到此分区",delegate{SelectGroup(selected);}));menu.Items.Add(Ui.Menu("重命名",delegate{EditTabName(selected,tab);}));menu.Items.Add(Ui.Menu("关闭标签并恢复独立分区",delegate{controller.DetachGroup(Group,selected);}));tab.ContextMenu=menu;groupTabs.Children.Add(tab);
         }
@@ -181,39 +255,43 @@ public class FenceWindow : Window {
     void RefreshWorkTabs(){workTabs.Children.Clear();foreach(string view in new[]{"文档","图片"}){string selected=view;bool active=ViewGroup.WorkView==view;var label=Ui.Text(view,HeaderFont,active?Ui.DesktopInk:Ui.DesktopMuted);label.FontWeight=FontWeights.SemiBold;label.Margin=new Thickness(8,2,8,2);var tab=new Border(){Child=label,Cursor=Cursors.Hand,Background=Brushes.Transparent,BorderBrush=Ui.Brush(Group.Color),BorderThickness=new Thickness(0,0,0,active?2:0),Margin=new Thickness(0,0,4,0)};tab.MouseLeftButtonDown+=delegate(object s,MouseButtonEventArgs e){e.Handled=true;if(ViewGroup.WorkView==selected)return;controller.Store.Checkpoint();ViewGroup.WorkView=selected;lastSignature=null;controller.Store.Save();Refresh();};workTabs.Children.Add(tab);}}
     string FolderLabel(string path){string name=Path.GetFileName((path??"").TrimEnd(Path.DirectorySeparatorChar));return String.IsNullOrEmpty(name)?(path??""):name;}
     void EnsureSessions(){
-        sessions.Clear();foreach(string folder in ViewGroup.Folders)sessions.Add(new PortalSession(folder));
-        if(ViewGroup.FolderIndex>=sessions.Count)ViewGroup.FolderIndex=sessions.Count==0?0:sessions.Count-1;
-        if(ViewGroup.FolderIndex<0&&ViewGroup.Kind=="文件夹"&&!String.IsNullOrEmpty(ViewGroup.Folder))ViewGroup.FolderIndex=0;
-        portal=ViewGroup.FolderIndex<0||sessions.Count==0?null:sessions[ViewGroup.FolderIndex];transientPortal=false;
+        var folders=FolderGroup;
+        sessions.Clear();foreach(string folder in folders.Folders)sessions.Add(new PortalSession(folder));
+        if(folders.FolderIndex>=sessions.Count)folders.FolderIndex=sessions.Count==0?0:sessions.Count-1;
+        if(folders.FolderIndex<0&&folders.Kind=="文件夹"&&!String.IsNullOrEmpty(folders.Folder))folders.FolderIndex=0;
+        portal=ViewGroup!=folders||folders.FolderIndex<0||sessions.Count==0?null:sessions[folders.FolderIndex];transientPortal=false;
     }
     void RefreshTabs(){
         if(tabBar==null)return;tabBar.Children.Clear();
-        if(ViewGroup.Kind!="文件夹"||String.IsNullOrEmpty(ViewGroup.Folder)){var homeLabel=Ui.Text(ViewGroup.Kind=="文件夹"?(ViewGroup.Name=="文件夹"?"桌面":ViewGroup.Name):"分区",HeaderFont,portal==null?Ui.DesktopInk:Ui.DesktopMuted);homeLabel.FontWeight=FontWeights.SemiBold;homeLabel.Margin=new Thickness(7,2,7,2);var home=new Border(){Child=homeLabel,Cursor=Cursors.Hand,BorderBrush=Ui.Brush(Group.Color),BorderThickness=new Thickness(0,0,0,portal==null?2:0),Margin=new Thickness(0,0,6,0)};home.MouseLeftButtonDown+=delegate(object s,MouseButtonEventArgs e){e.Handled=true;if(e.ClickCount==2&&ViewGroup==Group){RenameGroup(Group);return;}SelectTab(-1);};tabBar.Children.Add(home);}
+        var folders=FolderGroup;
+        if(folders.Kind!="文件夹"||String.IsNullOrEmpty(folders.Folder)){var homeLabel=Ui.Text(folders.Kind=="文件夹"?(folders.Name=="文件夹"?"桌面":folders.Name):"分区",HeaderFont,portal==null?Ui.DesktopInk:Ui.DesktopMuted);homeLabel.FontWeight=FontWeights.SemiBold;homeLabel.Margin=new Thickness(7,2,7,2);var home=new Border(){Child=homeLabel,Cursor=Cursors.Hand,BorderBrush=Ui.Brush(Group.Color),BorderThickness=new Thickness(0,0,0,portal==null?2:0),Margin=new Thickness(0,0,6,0)};home.MouseLeftButtonDown+=delegate(object s,MouseButtonEventArgs e){e.Handled=true;if(e.ClickCount==2&&ViewGroup==Group){RenameGroup(Group);return;}SelectTab(-1);};tabBar.Children.Add(home);}
         var tint=((SolidColorBrush)Ui.Brush(Group.Color)).Color;
-        for(int i=0;i<ViewGroup.Folders.Count;i++){
-            int index=i;bool active=index==ViewGroup.FolderIndex;
-            var label=Ui.Text(FolderLabel(ViewGroup.Folders[i]),HeaderFont,Ui.DesktopInk);label.FontWeight=FontWeights.SemiBold;label.VerticalAlignment=VerticalAlignment.Center;
-            var close=new TextBlock(){Text="×",FontSize=12,Foreground=Ui.DesktopMuted,Margin=new Thickness(6,0,2,0),Cursor=Cursors.Hand,VerticalAlignment=VerticalAlignment.Center};close.MouseLeftButtonDown+=delegate(object s,MouseButtonEventArgs e){e.Handled=true;RemoveFolder(index);};
+        for(int i=0;i<folders.Folders.Count;i++){
+            int index=i;bool active=ViewGroup==folders&&index==folders.FolderIndex;
+            var label=Ui.Text(FolderLabel(folders.Folders[i]),HeaderFont,Ui.DesktopInk);label.FontWeight=FontWeights.SemiBold;label.VerticalAlignment=VerticalAlignment.Center;
+            var close=new TextBlock(){Text="×",FontSize=12,Foreground=Ui.DesktopMuted,Margin=new Thickness(6,0,2,0),Cursor=Cursors.Hand,VerticalAlignment=VerticalAlignment.Center,Opacity=0,IsHitTestVisible=false};close.MouseLeftButtonDown+=delegate(object s,MouseButtonEventArgs e){e.Handled=true;RemoveFolder(index);};
             var row=new StackPanel(){Orientation=Orientation.Horizontal};row.Children.Add(label);row.Children.Add(close);
-            var tab=new Border(){Child=row,Cursor=Cursors.Hand,Padding=new Thickness(6,2,4,2),Margin=new Thickness(0,0,6,0),Background=Brushes.Transparent,BorderBrush=Ui.Brush(Group.Color),BorderThickness=new Thickness(0,0,0,active?2:0),ToolTip=ViewGroup.Folders[i]};
+            var tab=new Border(){Child=row,Cursor=Cursors.Hand,Padding=new Thickness(6,2,4,2),Margin=new Thickness(0,0,6,0),Background=Brushes.Transparent,BorderBrush=Ui.Brush(Group.Color),BorderThickness=new Thickness(0,0,0,active?2:0),ToolTip=folders.Folders[i]};
+            tab.MouseEnter+=delegate{close.Opacity=1;close.IsHitTestVisible=true;};tab.MouseLeave+=delegate{close.Opacity=0;close.IsHitTestVisible=false;};
             tab.MouseLeftButtonDown+=delegate(object s,MouseButtonEventArgs e){SelectTab(index);e.Handled=true;};
-            var menu=new ContextMenu();menu.Items.Add(Ui.Menu("在面板中打开",delegate{SelectTab(index);}));menu.Items.Add(Ui.Menu("在资源管理器中打开",delegate{Shell.Open(ViewGroup.Folders[index]);}));menu.Items.Add(Ui.Menu("关闭标签",delegate{RemoveFolder(index);}));tab.ContextMenu=menu;
+            var menu=new ContextMenu();menu.Items.Add(Ui.Menu("在面板中打开",delegate{SelectTab(index);}));menu.Items.Add(Ui.Menu("在资源管理器中打开",delegate{Shell.Open(folders.Folders[index]);}));menu.Items.Add(Ui.Menu("关闭标签",delegate{RemoveFolder(index);}));tab.ContextMenu=menu;
             tabBar.Children.Add(tab);
         }
         var add=new TextBlock(){Text="＋",FontSize=17,Foreground=Ui.DesktopMuted,Cursor=Cursors.Hand,VerticalAlignment=VerticalAlignment.Center,Margin=new Thickness(2,0,6,0),ToolTip="添加文件夹"};add.MouseLeftButtonDown+=delegate(object s,MouseButtonEventArgs e){e.Handled=true;AddFolderDialog();};tabBar.Children.Add(add);}
     void SelectTab(int index){
-        if(index<0&&(ViewGroup.Kind!="文件夹"||String.IsNullOrEmpty(ViewGroup.Folder))){ClosePreview();ViewGroup.FolderIndex=-1;portal=null;transientPortal=false;lastSignature=null;controller.Store.Save();Refresh();return;}
-        if(index<0||index>=ViewGroup.Folders.Count)return;ClosePreview();EnsureSessions();bool same=index==ViewGroup.FolderIndex;portal=sessions[index];transientPortal=false;
-        if(same&&portal!=null&&!String.Equals(portal.Current,portal.Root,StringComparison.OrdinalIgnoreCase)){portal=new PortalSession(ViewGroup.Folders[index]);sessions[index]=portal;}
-        ViewGroup.FolderIndex=index;lastSignature=null;controller.Store.Save();Refresh();
+        var folders=FolderGroup;
+        if(index<0&&(folders.Kind!="文件夹"||String.IsNullOrEmpty(folders.Folder))){ClosePreview();folders.FolderIndex=-1;portal=null;transientPortal=false;lastSignature=null;controller.Store.Save();Refresh();return;}
+        if(index<0||index>=folders.Folders.Count)return;ClosePreview();bool same=ViewGroup==folders&&index==folders.FolderIndex;if(folders==Group)Group.ActiveGroupId=Group.Id;EnsureSessions();portal=sessions[index];transientPortal=false;
+        if(same&&portal!=null&&!String.Equals(portal.Current,portal.Root,StringComparison.OrdinalIgnoreCase)){portal=new PortalSession(folders.Folders[index]);sessions[index]=portal;}
+        folders.FolderIndex=index;lastSignature=null;controller.Store.Save();Refresh();
     }
     void AddFolderDialog(){if(controller.Manager==null)return;using(var dialog=new System.Windows.Forms.FolderBrowserDialog()){dialog.Description="选择要在面板中显示的文件夹";if(dialog.ShowDialog()!=System.Windows.Forms.DialogResult.OK)return;AddFolders(new[]{dialog.SelectedPath});}}
     void AddFolders(string[] paths){
-        if(paths==null||paths.Length==0)return;var added=new List<string>();foreach(string path in paths){string full;try{full=Path.GetFullPath(path);}catch{continue;}if(!Directory.Exists(full))continue;if(ViewGroup.Folders.Any(f=>String.Equals(f,full,StringComparison.OrdinalIgnoreCase))||added.Any(f=>String.Equals(f,full,StringComparison.OrdinalIgnoreCase)))continue;added.Add(full);}
-        if(added.Count==0)return;ClosePreview();controller.Store.Checkpoint();ViewGroup.Folders.AddRange(added);ViewGroup.FolderIndex=ViewGroup.Folders.Count-added.Count;EnsureSessions();lastSignature=null;controller.SaveAndRefresh(false);Refresh();
+        if(paths==null||paths.Length==0)return;var folders=FolderGroup;var added=new List<string>();foreach(string path in paths){string full;try{full=Path.GetFullPath(path);}catch{continue;}if(!Directory.Exists(full))continue;if(folders.Folders.Any(f=>String.Equals(f,full,StringComparison.OrdinalIgnoreCase))||added.Any(f=>String.Equals(f,full,StringComparison.OrdinalIgnoreCase)))continue;added.Add(full);}
+        if(added.Count==0)return;ClosePreview();controller.Store.Checkpoint();folders.Folders.AddRange(added);folders.FolderIndex=folders.Folders.Count-added.Count;if(folders==Group)Group.ActiveGroupId=Group.Id;EnsureSessions();lastSignature=null;controller.SaveAndRefresh(false);Refresh();
     }
     void RemoveFolder(int index){
-        if(index<0||index>=ViewGroup.Folders.Count)return;controller.Store.Checkpoint();string removed=ViewGroup.Folders[index];ViewGroup.Folders.RemoveAt(index);if(ViewGroup.FolderIndex>=ViewGroup.Folders.Count)ViewGroup.FolderIndex=ViewGroup.Folders.Count==0?-1:ViewGroup.Folders.Count-1;if(String.Equals(ViewGroup.Folder,removed,StringComparison.OrdinalIgnoreCase))ViewGroup.Folder=ViewGroup.Folders.Count>0?ViewGroup.Folders[0]:"";EnsureSessions();lastSignature=null;controller.SaveAndRefresh(false);Refresh();
+        var folders=FolderGroup;if(index<0||index>=folders.Folders.Count)return;controller.Store.Checkpoint();string removed=folders.Folders[index];folders.Folders.RemoveAt(index);folders.FolderIgnoreRules.Remove(removed);if(folders.FolderIndex>=folders.Folders.Count)folders.FolderIndex=folders.Folders.Count==0?-1:folders.Folders.Count-1;if(String.Equals(folders.Folder,removed,StringComparison.OrdinalIgnoreCase))folders.Folder=folders.Folders.Count>0?folders.Folders[0]:"";EnsureSessions();lastSignature=null;controller.SaveAndRefresh(false);Refresh();
     }
     string lastSignature=null;
     Border MakeTile(string path){
@@ -241,13 +319,14 @@ public class FenceWindow : Window {
         box.AllowDrop=true;box.DragOver+=delegate(object sender,DragEventArgs e){e.Effects=Directory.Exists(path)?DragTransfer.Effect(e,path):DragDropEffects.None;e.Handled=true;};box.Drop+=delegate(object sender,DragEventArgs e){e.Handled=true;if(Directory.Exists(path))DragTransfer.Drop(this,controller,e,path,delegate{lastSignature=null;Refresh();});};return box;
     }
     public bool PlaceOnDesktop(IntPtr host){Docked=Shell.Attach(this,host);return Docked;}
-    // Ctrl＋左键多选：选中的分区加粗高亮，右键或 Enter 一起弹成工作区面板。
+    // Ctrl＋左键多选：选中的分区加粗高亮，Enter 可一起置顶或收起。
     public bool Selected{get{return controller.SelectedGroups.Contains(Group.Id);}}
     public void RefreshSelection(){ApplySelectionVisual();}
     void ApplySelectionVisual(){
         bool selected=Selected;
         frame.BorderThickness=new Thickness(selected?3:1.5);
         if(selected)frame.BorderBrush=Ui.Accent;
+        if(selectGlyph!=null){selectGlyph.Text=selected?"●":"○";selectGlyph.Foreground=selected?Ui.Accent:Ui.DesktopMuted;}
     }
 }
 }

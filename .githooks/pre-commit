@@ -1,0 +1,48 @@
+#!/bin/sh
+# Pre-commit hook. Blocks a commit that adds a new code-rule violation.
+#
+# Installed by `git config core.hooksPath .githooks` (one time, per clone).
+# That path is a repository setting, not a tracked file, so a fresh clone must run
+# it once; code/check-code.ps1 prints the reminder when the hook is not active.
+#
+# The shebang line above is not optional: without it Git hands the file to the
+# shell as data and fails with "cannot spawn .githooks/pre-commit".
+#
+# Keep this file ASCII-only (Windows PowerShell 5.1 reads scripts with the ANSI code
+# page) and LF-only: CRLF inside a shell script fails on every machine, and Windows
+# needs the executable bit in the index for Git to run it at all.
+#
+# --no-verify skips this. Do not use it to land a violation: the next build still
+# reports it, and the point of the hook is to keep it out of history in the first place.
+
+set -e
+
+repo_root=$(git rev-parse --show-toplevel)
+guard="$repo_root/code/check-code.ps1"
+
+if [ ! -f "$guard" ]; then
+    echo "code guard missing at $guard; commit blocked." >&2
+    exit 1
+fi
+
+# Windows PowerShell 5.1 refuses to run unsigned scripts under the default policy,
+# so the guard is invoked through an explicit bypass instead of relying on the
+# developer's machine-wide setting.
+if command -v powershell.exe >/dev/null 2>&1; then
+    powershell_exe=powershell.exe
+elif command -v pwsh >/dev/null 2>&1; then
+    powershell_exe=pwsh
+else
+    echo "No PowerShell found; cannot run the code guard. Commit blocked." >&2
+    exit 1
+fi
+
+if ! "$powershell_exe" -NoProfile -ExecutionPolicy Bypass -File "$guard"; then
+    echo "" >&2
+    echo "Commit blocked: the code guard found a new rule violation (see the list above)." >&2
+    echo "Fix the code, or read CODE-RULES.md for the reason behind each rule." >&2
+    echo "The baseline in code/code-budget.json is not a place to hide a violation." >&2
+    exit 1
+fi
+
+exit 0

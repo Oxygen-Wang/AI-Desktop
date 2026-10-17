@@ -31,7 +31,7 @@ public partial class Controller {
     long lastDesktopActivity=DateTime.UtcNow.Ticks;
     bool autoHidden;
     DateTime lastDaily;
-    public Controller(Store store){Store=store;}
+    public Controller(Store store){Store=store;foreach(string id in store.Data.SelectedWorkspaceGroups)SelectedGroups.Add(id);}
     public void StartProjectDetection(){if(projectTimer==null){projectTimer=new DispatcherTimer(){Interval=TimeSpan.FromSeconds(5)};projectTimer.Tick+=delegate{try{if(IgnoreFiles.Sync(Store.Data)){Store.Save();Refresh();}}catch(Exception ex){Manager.SetStatus("忽略文件同步未完成："+ex.Message);}};}projectTimer.Start();}
     public void CloseProjectDetection(){if(projectTimer!=null)projectTimer.Stop();}
     public void AddStarterWidgets(){if(Store.Data.StarterWidgetsAdded)return;Store.Data.StarterWidgetsAdded=true;Store.Save();}
@@ -92,6 +92,9 @@ public partial class Controller {
         return restored;
     }
     public void Rebuild(){
+        workspaceRaised=false;
+        SelectedGroups.RemoveWhere(id=>!Store.Data.SelectedWorkspaceGroups.Contains(id,StringComparer.OrdinalIgnoreCase));
+        foreach(string id in Store.Data.SelectedWorkspaceGroups)SelectedGroups.Add(id);
         foreach(var w in Windows.ToArray())try{w.Close();}catch{}Windows.Clear();
         foreach(var w in Widgets.ToArray())try{w.Close();}catch{}Widgets.Clear();if(!Running)return;
         host=Docked?Shell.DesktopHost():IntPtr.Zero;int attached=0,index=0;bool recovered=false;
@@ -153,19 +156,19 @@ public partial class Controller {
         if(pageAnimating||delta==0||Store.Data.Pages<2)return;
         int direction=Math.Sign(delta);
         if(!Running||Hidden||Windows.Count+Widgets.Count==0){Store.Data.Page=(Store.Data.Page+delta+Store.Data.Pages)%Store.Data.Pages;SaveAndRefresh();return;}
-        pageAnimating=true;
+        pageAnimating=true;double travel=Math.Max(180,SystemParameters.PrimaryScreenWidth*.62);
         foreach(Window window in Windows.Cast<Window>().Concat(Widgets.Cast<Window>())){
-            double left=window.Left;var slide=new DoubleAnimation(left,left-direction*88,TimeSpan.FromMilliseconds(150)){FillBehavior=FillBehavior.Stop,EasingFunction=new CubicEase(){EasingMode=EasingMode.EaseIn}};
-            window.BeginAnimation(Window.LeftProperty,slide);window.BeginAnimation(Window.OpacityProperty,new DoubleAnimation(window.Opacity,0,TimeSpan.FromMilliseconds(150)){FillBehavior=FillBehavior.Stop});
+            double left=window.Left;var slide=new DoubleAnimation(left,left-direction*travel,TimeSpan.FromMilliseconds(230)){FillBehavior=FillBehavior.Stop,EasingFunction=new CubicEase(){EasingMode=EasingMode.EaseInOut}};
+            window.BeginAnimation(Window.LeftProperty,slide);window.BeginAnimation(Window.OpacityProperty,new DoubleAnimation(window.Opacity,0,TimeSpan.FromMilliseconds(230)){FillBehavior=FillBehavior.Stop});
         }
-        var delay=new DispatcherTimer(){Interval=TimeSpan.FromMilliseconds(155)};
+        var delay=new DispatcherTimer(){Interval=TimeSpan.FromMilliseconds(235)};
         delay.Tick+=delegate{delay.Stop();Store.Data.Page=(Store.Data.Page+delta+Store.Data.Pages)%Store.Data.Pages;SaveAndRefresh();foreach(Window window in Windows.Cast<Window>().Concat(Widgets.Cast<Window>())){
-            double left=window.Left;window.BeginAnimation(Window.LeftProperty,new DoubleAnimation(left+direction*88,left,TimeSpan.FromMilliseconds(210)){FillBehavior=FillBehavior.Stop,EasingFunction=new CubicEase(){EasingMode=EasingMode.EaseOut}});
-            window.BeginAnimation(Window.OpacityProperty,new DoubleAnimation(0,1,TimeSpan.FromMilliseconds(210)){FillBehavior=FillBehavior.Stop});
-        }pageAnimating=false;};delay.Start();
+            double left=window.Left;window.BeginAnimation(Window.LeftProperty,new DoubleAnimation(left+direction*travel,left,TimeSpan.FromMilliseconds(260)){FillBehavior=FillBehavior.Stop,EasingFunction=new CubicEase(){EasingMode=EasingMode.EaseOut}});
+            window.BeginAnimation(Window.OpacityProperty,new DoubleAnimation(0,1,TimeSpan.FromMilliseconds(260)){FillBehavior=FillBehavior.Stop});
+        }var finish=new DispatcherTimer(){Interval=TimeSpan.FromMilliseconds(265)};finish.Tick+=delegate{finish.Stop();pageAnimating=false;};finish.Start();};delay.Start();
     }
     public void ToggleHidden(){autoHidden=false;SetHidden(!Hidden);}
-    // 双键横滑：拖动时让分区跟随手指（手机式），松手后按位移翻页或回弹。
+    // 中键横滑：拖动时让分区跟随指针，松手后按位移翻页或回弹。
     List<Tuple<Window,double>> swipeBases;
     public void SwipeStart(){swipeBases=null;if(!Running||Hidden||Store.Data.Pages<2)return;swipeBases=new List<Tuple<Window,double>>();foreach(Window window in Windows.Cast<Window>().Concat(Widgets.Cast<Window>()))swipeBases.Add(Tuple.Create(window,window.Left));}
     public void SwipeMove(int delta){if(swipeBases==null)return;double offset=delta*.45;foreach(var basis in swipeBases){try{basis.Item1.Left=basis.Item2+offset;}catch{}}}
@@ -201,22 +204,64 @@ public partial class Controller {
         SaveAndRefresh();
         if(Manager!=null)Manager.SetStatus(target!=null?"已将 "+Path.GetFileName(path)+" 移到「"+target.Name+"」分区。":"已将 "+Path.GetFileName(path)+" 移出分区；没有其它分区可接收，暂保留在桌面。");
     }
-    // Ctrl＋左键多选桌面分区：选中后可以一起弹成一个工作区面板。
+    // Ctrl＋左键多选桌面分区；Alt＋Space 将这些独立窗口一起置顶或收起。
     public readonly HashSet<string> SelectedGroups=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    bool workspaceRaised;
+    void SaveWorkspaceSelection(){
+        Store.Data.SelectedWorkspaceGroups=SelectedGroups.ToList();
+        Store.Save();
+    }
+    public void ToggleSelectedWorkspace(){
+        var selected=Windows.Where(w=>SelectedGroups.Contains(w.Group.Id)).ToArray();
+        if(selected.Length==0){
+            if(Manager!=null)Manager.SetStatus("先点分区右上角的圆点选择工作区；Ctrl＋左键可多选。");
+            return;
+        }
+        if(workspaceRaised){
+            foreach(var window in selected){window.Topmost=false;window.Hide();}
+            workspaceRaised=false;
+            if(Manager!=null)Manager.SetStatus("已收起所选工作区；再按 Alt＋Space 可重新显示。");
+            return;
+        }
+        foreach(var window in selected){
+            window.Show();
+            if(Docked)window.PlaceOnDesktop(host);
+            window.Topmost=true;
+            Shell.Raise(window);
+        }
+        workspaceRaised=true;
+        if(Manager!=null)Manager.SetStatus("已将 "+selected.Length+" 个工作区提到最前面；再按 Alt＋Space 收起。");
+    }
     public bool ToggleGroupSelection(Group group){
         if(group==null)return false;
+        if(workspaceRaised){
+            foreach(var window in Windows.Where(w=>SelectedGroups.Contains(w.Group.Id)))window.Topmost=false;
+            workspaceRaised=false;
+        }
         bool selected;
         if(SelectedGroups.Contains(group.Id)){SelectedGroups.Remove(group.Id);selected=false;}else{SelectedGroups.Add(group.Id);selected=true;}
+        SaveWorkspaceSelection();
         foreach(var window in Windows)window.RefreshSelection();
-        if(Manager!=null)Manager.SetStatus(selected?SelectedGroups.Count+" 个分区已选中：右键或按 Enter 弹成工作区面板。":"已取消选中。");
+        if(Manager!=null)Manager.SetStatus(selected?SelectedGroups.Count+" 个分区已选中；Alt＋Space 可将它们一起置顶。":"已取消选中。");
         return selected;
     }
-    public void ClearGroupSelection(){if(SelectedGroups.Count==0)return;SelectedGroups.Clear();foreach(var window in Windows)window.RefreshSelection();}
-    public void PopOutSelectedGroups(){
+    public void ClearGroupSelection(){
         if(SelectedGroups.Count==0)return;
-        var ids=SelectedGroups.ToArray();SelectedGroups.Clear();
+        foreach(var window in Windows.Where(w=>SelectedGroups.Contains(w.Group.Id))){
+            window.Topmost=false;
+            if(!Hidden&&!window.IsVisible){
+                window.Show();
+                if(Docked)window.PlaceOnDesktop(host);
+            }
+        }
+        workspaceRaised=false;
+        SelectedGroups.Clear();
+        SaveWorkspaceSelection();
         foreach(var window in Windows)window.RefreshSelection();
-        if(Manager!=null)Manager.ShowWorkspacePanelWithGroups(ids);
+        if(Manager!=null)Manager.SetStatus("已取消选择所有工作区；桌面分区仍保留。");
+    }
+    public void PopOutSelectedGroups(){
+        ToggleSelectedWorkspace();
     }
     public void ApplyRules(){Store.Checkpoint();int count=OrganizeLoose(Store.DesktopItems());SaveAndRefresh();if(Manager!=null)Manager.SetStatus("按规则整理了 "+count+" 个散落图标；已在分区中的图标保持不变。");}
     public Group CreateAt(Rect bounds,string name,string folder){if(bounds.IsEmpty||bounds.Width<220||bounds.Height<100)throw new ArgumentException("创建区域至少为 220 × 100。");Store.Checkpoint();var group=new Group(){Name=name,Folder=folder??"",Page=Store.Data.Page,X=bounds.X,Y=bounds.Y,Width=bounds.Width,Height=bounds.Height};Store.Data.Groups.Add(group);SaveAndRefresh();return group;}

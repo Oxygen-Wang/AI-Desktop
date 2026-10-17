@@ -29,17 +29,22 @@ public partial class ManagerWindow : Window {
         Closing+=delegate(object s,System.ComponentModel.CancelEventArgs e){if(!quitting&&tray!=null){e.Cancel=true;Hide();}};
         PreviewKeyDown+=delegate(object s,System.Windows.Input.KeyEventArgs e){var focus=System.Windows.Input.Keyboard.FocusedElement;if(focus is TextBox||focus is ComboBox)return;var modifiers=System.Windows.Input.Keyboard.Modifiers;if(modifiers!=System.Windows.Input.ModifierKeys.Control)return;if(e.Key==System.Windows.Input.Key.Left||e.Key==System.Windows.Input.Key.Right){controller.Page(e.Key==System.Windows.Input.Key.Left?-1:1);e.Handled=true;}};
         Closed+=delegate{CloseTutorial();CloseWorkspaceSearch();if(workspacePanel!=null){workspacePanel.Close();workspacePanel=null;}if(pet!=null){pet.Close();pet=null;}if(shellActions!=null)shellActions.Dispose();controller.CloseMcp();controller.CloseProjectDetection();controller.Stop();if(hwnd!=null){Shell.UnregisterHotKey(hwnd.Handle,1);Shell.UnregisterHotKey(hwnd.Handle,2);Shell.UnregisterHotKey(hwnd.Handle,3);Shell.UnregisterHotKey(hwnd.Handle,5);Shell.UnregisterHotKey(hwnd.Handle,6);}if(tray!=null)tray.Dispose();};
+        Closed+=delegate{if(hwnd!=null)Shell.UnregisterHotKey(hwnd.Handle,7);};
         Refresh();
     }
     public void EnableTrayAndHotkeys(){
         try{shellActions=new DesktopShellActions(controller);DesktopShellActions.Register(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName);}catch(Exception ex){SetStatus("桌面右键扩展未启用："+ex.Message);}
-        hwnd=HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);hwnd.AddHook(Hook);bool workspaceKey=Shell.RegisterHotKey(hwnd.Handle,5,1|0x4000,0x20);if(!workspaceKey)SetStatus("Alt＋Space 已被占用，可从托盘或小猫打开工作区面板。");
+        hwnd=HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);hwnd.AddHook(Hook);bool workspaceKey=Shell.RegisterHotKey(hwnd.Handle,5,1|0x4000,0x20);if(!workspaceKey)SetStatus("Alt＋Space 已被占用，可从托盘打开工作区。");
+        Shell.RegisterHotKey(hwnd.Handle,7,3|0x4000,0x08);
         FileActivity.Initialize(controller.Store.Root);bool hide=Shell.RegisterHotKey(hwnd.Handle,1,3|0x4000,0x44);bool pagePrev=Shell.RegisterHotKey(hwnd.Handle,2,3|0x4000,0x25);bool pageNext=Shell.RegisterHotKey(hwnd.Handle,3,3|0x4000,0x27);bool petKey=Shell.RegisterHotKey(hwnd.Handle,6,3|0x4000,0x4D);
         if(!hide)SetStatus("Ctrl+Alt+D 已被其他程序占用，可使用托盘菜单隐藏/显示。");
         else if(!pagePrev||!pageNext)SetStatus("Ctrl+Alt+方向键已被其他程序占用，无法切换页面。");
         else if(!petKey)SetStatus("Ctrl＋Alt＋M 已被其他程序占用，可从右键菜单或托盘隐藏小猫。");
         tray=new System.Windows.Forms.NotifyIcon(){Icon=System.Drawing.Icon.ExtractAssociatedIcon(System.Reflection.Assembly.GetExecutingAssembly().Location),Text="栖桌 · AI Desktop",Visible=true};
         var menu=new System.Windows.Forms.ContextMenuStrip();menu.Items.Add("打开管理面板",null,delegate{Show();WindowState=WindowState.Normal;Activate();});menu.Items.Add("隐藏 / 显示分组",null,delegate{controller.ToggleHidden();});menu.Items.Add("工作区面板 · Alt＋Space",null,delegate{ShowWorkspacePanel(false);pet_Touch();});menu.Items.Add("工作区搜索",null,delegate{ShowWorkspaceSearch();});menu.Items.Add("搜索全盘文件",null,delegate{ShowWorkspaceSearch(false,true);});menu.Items.Add("显示 / 隐藏小猫",null,delegate{TogglePet();});menu.Items.Add("添加桌面组件",null,delegate{ShowComponentPicker();});menu.Items.Add("使用教程",null,delegate{ShowTutorial();});menu.Items.Add("完全停止并恢复 Windows 桌面",null,delegate{Quit();});tray.ContextMenuStrip=menu;tray.DoubleClick+=delegate{Show();Activate();};
+        menu.Items.RemoveAt(2);
+        menu.Items.Insert(2,new System.Windows.Forms.ToolStripMenuItem("工作区 · Alt＋Space",null,delegate{ToggleWorkspaceHotkey();pet_Touch();}));
+        menu.Items.Insert(3,new System.Windows.Forms.ToolStripMenuItem("取消所有工作区选择 · Ctrl＋Alt＋Backspace",null,delegate{controller.ClearGroupSelection();}));
         UpdatePet();
     }
     void pet_Touch(){if(pet!=null)pet.Touch();}
@@ -92,7 +97,8 @@ public partial class ManagerWindow : Window {
         }
         if(controller.Store.Data.PetVisible)pet.Show();else pet.Hide();
     }
-    IntPtr Hook(IntPtr h,int msg,IntPtr w,IntPtr l,ref bool handled){if(msg==0x312){handled=true;switch(w.ToInt32()){case 1:controller.ToggleHidden();break;case 2:controller.Page(-1);break;case 3:controller.Page(1);break;case 5:ShowWorkspacePanel(true);break;case 6:TogglePet();break;}}return IntPtr.Zero;}
+    void ToggleWorkspaceHotkey(){if(controller.Running&&controller.Windows.Any(window=>controller.SelectedGroups.Contains(window.Group.Id)))controller.ToggleSelectedWorkspace();else ShowWorkspacePanel(true);}
+    IntPtr Hook(IntPtr h,int msg,IntPtr w,IntPtr l,ref bool handled){if(msg==0x312){handled=true;switch(w.ToInt32()){case 1:controller.ToggleHidden();break;case 2:controller.Page(-1);break;case 3:controller.Page(1);break;case 5:ToggleWorkspaceHotkey();break;case 6:TogglePet();break;case 7:controller.ClearGroupSelection();break;}}return IntPtr.Zero;}
     public void Quit(){quitting=true;controller.Stop();try{controller.Store.Save();}catch{}if(shellActions!=null)try{DesktopShellActions.Unregister();}catch(Exception ex){SetStatus("桌面右键入口清理未完成："+ex.Message);}Close();}
     public void SetStatus(string text){status.Text=text;}
     public void Refresh(){
@@ -130,6 +136,8 @@ public partial class ManagerWindow : Window {
     void DeleteGroup(Group g){
         controller.Store.Checkpoint();var groups=controller.Store.Data.Groups;var removed=groups.Where(x=>x==g||x.HostGroupId==g.Id).ToArray();
         foreach(var item in removed)groups.Remove(item);
+        foreach(var item in removed)controller.SelectedGroups.Remove(item.Id);
+        controller.Store.Data.SelectedWorkspaceGroups.RemoveAll(id=>removed.Any(item=>item.Id==id));
         controller.Store.Data.Rules.RemoveAll(r=>removed.Any(x=>x.Id==r.GroupId));
         controller.SaveAndRefresh();SetStatus("分区已删除；其中的桌面项目已恢复到桌面。可撤销此次更改。");
     }

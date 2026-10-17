@@ -10,7 +10,7 @@ public static class PanelFiles {
     public const int SearchLimit=2000;
     public const int SearchBudget=400000;
     // 在当前文件夹及其子目录里按名称匹配。遵循栖桌现有忽略规则与 .gitignore/.cursorignore。
-    public static string[] Search(State state,string root,string query){
+    public static string[] Search(State state,string root,string query,List<IgnoreRule> localRules=null){
         var found=new List<string>();
         if(String.IsNullOrEmpty(query)||String.IsNullOrEmpty(root)||!Directory.Exists(root))return found.ToArray();
         var pending=new Queue<string>();pending.Enqueue(Path.GetFullPath(root));
@@ -23,7 +23,7 @@ public static class PanelFiles {
                 try{if((File.GetAttributes(path)&FileAttributes.ReparsePoint)!=0)continue;}catch{continue;}
                 string name=Path.GetFileName(path);
                 if(name.Equals("desktop.ini",StringComparison.OrdinalIgnoreCase))continue;
-                if(Ignored(state,path))continue;
+                if(Ignored(state,path,localRules))continue;
                 if(name.IndexOf(query,StringComparison.OrdinalIgnoreCase)>=0)found.Add(path);
                 if(found.Count>=SearchLimit)break;
                 if(Directory.Exists(path))pending.Enqueue(path);
@@ -31,8 +31,8 @@ public static class PanelFiles {
         }
         return found.ToArray();
     }
-    public static bool Ignored(State state,string path){
-        return state.IgnoreRules.Any(r=>r.Matches(path))||IgnoreFiles.Ignored(state,path,null);
+    public static bool Ignored(State state,string path,List<IgnoreRule> localRules=null){
+        return state.IgnoreRules.Any(r=>r.Matches(path))||(localRules!=null&&localRules.Any(r=>r.Matches(path)))||IgnoreFiles.Ignored(state,path,null);
     }
     public static string Relative(string root,string path){
         try{
@@ -58,13 +58,16 @@ public static class PanelFiles {
         }
         return true;
     }
-    // 把一条忽略规则登记到全局忽略里；名称规则匹配任意位置的同名文件或文件夹。
+    // 拖放忽略只针对该路径；名称通配符规则由设置页单独创建。
     public static IgnoreRule MakeIgnoreRule(string path){
-        return new IgnoreRule(){Pattern=Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar)),Kind="名称",Enabled=true};
+        return new IgnoreRule(){Pattern=IgnoreRule.Canonical(path),Kind="路径",IncludeChildren=Directory.Exists(path),Enabled=true};
+    }
+    public static bool HasExactIgnore(IEnumerable<IgnoreRule> rules,string path){
+        string exact=IgnoreRule.Canonical(path);
+        return rules.Any(r=>r.Enabled&&r.Kind=="路径"&&String.Equals(IgnoreRule.Canonical(r.Pattern),exact,StringComparison.OrdinalIgnoreCase));
     }
     public static bool IsIgnoredPath(State state,string path){
-        string name=Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar));
-        return state.IgnoreRules.Any(r=>r.Enabled&&r.Kind=="名称"&&String.Equals(r.Pattern,name,StringComparison.OrdinalIgnoreCase));
+        return state.IgnoreRules.Any(r=>r.Matches(path));
     }
     public static readonly string[] IgnoreIcons={"⊘","⛔","✖","☒","⚑","◌"};
 }

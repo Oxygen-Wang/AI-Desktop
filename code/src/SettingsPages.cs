@@ -51,7 +51,7 @@ public partial class ManagerWindow {
     Grid SettingRow(Panel parent,string label){var row=new Grid(){Margin=new Thickness(0,1,0,6)};row.ColumnDefinitions.Add(new ColumnDefinition(){Width=new GridLength(170)});row.ColumnDefinitions.Add(new ColumnDefinition());var caption=Ui.Text(label,12,Ui.Muted);caption.VerticalAlignment=VerticalAlignment.Center;caption.Margin=new Thickness(0,0,10,0);row.Children.Add(caption);parent.Children.Add(row);return row;}
     ComboBox Choice(Panel p,string label,IEnumerable<string> choices,int selected){var row=SettingRow(p,label);var c=new ComboBox(){ItemsSource=choices.ToArray(),SelectedIndex=Math.Max(0,selected),MinWidth=145,MaxWidth=350,HorizontalAlignment=HorizontalAlignment.Left,Margin=new Thickness(0)};Grid.SetColumn(c,1);row.Children.Add(c);return c;}
     Slider Range(Panel p,string label,double min,double max,double value){var row=SettingRow(p,label);var s=new Slider(){Minimum=min,Maximum=max,Value=value,MaxWidth=420,HorizontalAlignment=HorizontalAlignment.Stretch,Margin=new Thickness(0)};Grid.SetColumn(s,1);row.Children.Add(s);return s;}
-    void SaveSettings(bool rebuild){controller.SaveAndRefresh(rebuild);controller.UpdateDesktopIntegration();Refresh();}
+    void SaveSettings(bool rebuild){controller.SaveAndRefresh(rebuild);controller.UpdateDesktopIntegration();if(workspacePanel!=null&&workspacePanel.IsVisible)workspacePanel.RefreshNow();Refresh();}
     StackPanel AppearancePage(){
         var p=SettingsPage("颜色和外观","分别设置桌面分区与组件的背景、边框和颜色。");var groups=controller.Store.Data.Groups.ToArray();if(groups.Length==0){p.Children.Add(Ui.Button("新建分组",AddGroup));WidgetAppearanceControls(p);return p;}
         var target=Choice(p,"应用范围",new[]{"所有桌面分组"}.Concat(groups.Select(g=>g.Name)),0);Group first=groups[0];

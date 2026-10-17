@@ -16,6 +16,7 @@ public class Group {
     public string ActiveGroupId { get; set; }
     public string WorkView { get; set; }
     public List<string> Folders { get; set; }
+    public Dictionary<string,List<IgnoreRule>> FolderIgnoreRules {get;set;}
     public int FolderIndex { get; set; }
     public int Page { get; set; }
     public double X { get; set; }
@@ -45,7 +46,7 @@ public class Group {
     public double BackgroundOpacity {get;set;}
     public double BorderOpacity {get;set;}
     public List<IgnoreRule> IgnoreRules {get;set;}
-    public Group() { Id=Guid.NewGuid().ToString("N"); Color="#77BFA3"; Folder=""; Width=320; Height=340; Opacity=.90; Sort="名称"; Items=new List<string>();TitleMode="总是";LabelColor="#E8EDF6";LabelSize=14;LabelFont="Microsoft YaHei UI";IconSize=34;IconSkin="经典";IconColor="#92AAE5";CornerStyle="方角";WorkView="文档";TintStrength=.55;BackgroundStyle="跟随颜色";BackgroundImage="";ImageMode="填充";ViewMode="图标";Edge="";BackgroundOpacity=.76;BorderOpacity=.75;IgnoreRules=new List<IgnoreRule>();Kind="普通";Folders=new List<string>();FolderIndex=0; }
+    public Group() { Id=Guid.NewGuid().ToString("N"); Color="#77BFA3"; Folder=""; Width=320; Height=340; Opacity=.90; Sort="名称"; Items=new List<string>();TitleMode="总是";LabelColor="#E8EDF6";LabelSize=14;LabelFont="Microsoft YaHei UI";IconSize=34;IconSkin="经典";IconColor="#92AAE5";CornerStyle="方角";WorkView="文档";TintStrength=.55;BackgroundStyle="跟随颜色";BackgroundImage="";ImageMode="填充";ViewMode="图标";Edge="";BackgroundOpacity=.76;BorderOpacity=.75;IgnoreRules=new List<IgnoreRule>();Kind="普通";Folders=new List<string>();FolderIgnoreRules=new Dictionary<string,List<IgnoreRule>>(StringComparer.OrdinalIgnoreCase);FolderIndex=0; }
 }
 public class Rule {
     public string Name { get; set; }
@@ -67,7 +68,8 @@ public class Rule {
 public class PanelTab {
     public string Folder {get;set;}
     public string GroupId {get;set;}
-    public PanelTab(){Folder="";GroupId="";}
+    public List<IgnoreRule> IgnoreRules {get;set;}
+    public PanelTab(){Folder="";GroupId="";IgnoreRules=new List<IgnoreRule>();}
     public static PanelTab OfFolder(string folder){return new PanelTab(){Folder=folder??""};}
     public static PanelTab OfGroup(string id){return new PanelTab(){GroupId=id??""};}
     public bool IsFolder{get{return !String.IsNullOrEmpty(Folder);}}
@@ -136,6 +138,7 @@ public class State {
     // 工作区面板（浮动面板）：顶部是多个文件夹面板标签，一次只显示一个。
     public List<string> PanelFolders {get;set;}
     public List<PanelTab> PanelTabs {get;set;}
+    public List<string> SelectedWorkspaceGroups {get;set;}
     public Group PanelStyle {get;set;}
     public string PanelFollowGroupId {get;set;}
     public string PinnedGroupId {get;set;}
@@ -155,7 +158,7 @@ public class State {
     public double PetScale {get;set;}
     public bool PetVisible {get;set;}
     public string PetSkin {get;set;}
-    public State(){ComponentPacks=new List<ComponentPack>();ClipboardEnabled=false;ClipboardLimit=50;ClipboardSide="右侧";UseEverything=true;EverythingPath="";ScreenshotFolder="";HideOriginalIcons=false;HideDesktopIcons=false;PushIconsAside=true;Version=8;Pages=3;AutoRules=false;DoubleClickHide=true;DesktopDragCreate=false;RollupEnabled=true;RollupOnDoubleClick=false;HoverExpand=true;PortalNavigate=true;SnapEnabled=true;SnapGrid=8;SnapGap=16;SnapshotKeepDays=3;LayoutMode="保持位置";LastLayoutKey="";LayoutProfiles=new Dictionary<string,List<LayoutPlacement>>();AiEndpoint="http://127.0.0.1:11434";AiModel="qwen2.5:7b";Groups=new List<Group>();Rules=new List<Rule>();Excluded=new List<string>();HiddenDesktopItems=new List<string>();ManagedDesktopItems=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);IgnoreRules=new List<IgnoreRule>();WorkFolders=new List<string>();McpEnabled=true;WorkAutoIgnore=true;IgnoreFiles=new List<IgnoreFileSet>();AutoImportIgnoreFiles=true;AutoDetectWorkspaces=true;WorkSources=new Dictionary<string,string>();WorkConnectedAt=new Dictionary<string,string>();Widgets=new List<DesktopWidget>();Plugins=new List<WidgetPlugin>();IgnoredWorkFolders=new List<string>();PanelFolders=new List<string>();PanelTabs=new List<PanelTab>();PanelStyle=new Group(){Id="panel-style",Name="工作区面板",CornerStyle="方角",IconSize=44,BackgroundOpacity=.82,TintStrength=.55};PanelFollowGroupId="";PinnedGroupId="";PanelIndex=-1;PanelWidth=520;PanelHeight=620;PanelPositioned=false;PanelViewMode="图标";PanelIconSize=44;PanelIgnoreIcon="⊘";PetScale=1;PetVisible=true;PetSkin="默认猫";}
+    public State(){ComponentPacks=new List<ComponentPack>();ClipboardEnabled=false;ClipboardLimit=50;ClipboardSide="右侧";UseEverything=true;EverythingPath="";ScreenshotFolder="";HideOriginalIcons=false;HideDesktopIcons=false;PushIconsAside=true;Version=8;Pages=3;AutoRules=false;DoubleClickHide=true;DesktopDragCreate=false;RollupEnabled=true;RollupOnDoubleClick=false;HoverExpand=true;PortalNavigate=true;SnapEnabled=true;SnapGrid=8;SnapGap=16;SnapshotKeepDays=3;LayoutMode="保持位置";LastLayoutKey="";LayoutProfiles=new Dictionary<string,List<LayoutPlacement>>();AiEndpoint="http://127.0.0.1:11434";AiModel="qwen2.5:7b";Groups=new List<Group>();Rules=new List<Rule>();Excluded=new List<string>();HiddenDesktopItems=new List<string>();ManagedDesktopItems=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);IgnoreRules=new List<IgnoreRule>();WorkFolders=new List<string>();McpEnabled=true;WorkAutoIgnore=true;IgnoreFiles=new List<IgnoreFileSet>();AutoImportIgnoreFiles=true;AutoDetectWorkspaces=true;WorkSources=new Dictionary<string,string>();WorkConnectedAt=new Dictionary<string,string>();Widgets=new List<DesktopWidget>();Plugins=new List<WidgetPlugin>();IgnoredWorkFolders=new List<string>();PanelFolders=new List<string>();PanelTabs=new List<PanelTab>();SelectedWorkspaceGroups=new List<string>();PanelStyle=new Group(){Id="panel-style",Name="工作区面板",CornerStyle="方角",IconSize=44,BackgroundOpacity=.82,TintStrength=.55};PanelFollowGroupId="";PinnedGroupId="";PanelIndex=-1;PanelWidth=520;PanelHeight=620;PanelPositioned=false;PanelViewMode="图标";PanelIconSize=44;PanelIgnoreIcon="⊘";PetScale=1;PetVisible=true;PetSkin="默认猫";}
 }
 public class LayoutPlacement {public string Id {get;set;}public double X {get;set;}public double Y {get;set;}public double Width {get;set;}public double Height {get;set;}public string Edge {get;set;}public bool Rolled {get;set;}}
 public class Suggestion {
@@ -198,9 +201,10 @@ public class Store {
         s.IgnoredWorkFolders=s.IgnoredWorkFolders??new List<string>();
         s.CurrentWorkspace=s.CurrentWorkspace??"";
         s.PanelFolders=s.PanelFolders??new List<string>();s.PanelTabs=s.PanelTabs??new List<PanelTab>();
+        s.SelectedWorkspaceGroups=(s.SelectedWorkspaceGroups??new List<string>()).Where(id=>s.Groups.Any(g=>g.Id==id&&String.IsNullOrEmpty(g.HostGroupId))).Distinct(StringComparer.OrdinalIgnoreCase).Take(60).ToList();
         if(s.PanelTabs.Count==0&&s.PanelFolders.Count>0)foreach(string folder in s.PanelFolders)s.PanelTabs.Add(PanelTab.OfFolder(folder));
         s.PanelFolders=new List<string>();
-        s.PanelTabs=s.PanelTabs.Where(t=>t!=null&&(!String.IsNullOrEmpty(t.Folder)||!String.IsNullOrEmpty(t.GroupId))).ToList();if(s.PanelTabs.Count>60)s.PanelTabs=s.PanelTabs.Take(60).ToList();
+        s.PanelTabs=s.PanelTabs.Where(t=>t!=null&&(!String.IsNullOrEmpty(t.Folder)||!String.IsNullOrEmpty(t.GroupId))).ToList();if(s.PanelTabs.Count>60)s.PanelTabs=s.PanelTabs.Take(60).ToList();foreach(var tab in s.PanelTabs){tab.IgnoreRules=tab.IgnoreRules??new List<IgnoreRule>();IgnoreRule.Validate(tab.IgnoreRules);}
         s.PanelStyle=s.PanelStyle??new Group(){Id="panel-style",Name="工作区面板",CornerStyle="方角",IconSize=44};
         s.PanelStyle.Id="panel-style";NormalizeStyle(s.PanelStyle);
         s.PanelFollowGroupId=s.PanelFollowGroupId??"";
@@ -221,7 +225,8 @@ public class Store {
         s.LayoutProfiles=s.LayoutProfiles??new Dictionary<string,List<LayoutPlacement>>();
         s.SnapGrid=(int)Bound(s.SnapGrid,1,64);s.SnapGap=(int)Bound(s.SnapGap,0,80);s.SnapshotKeepDays=(int)Bound(s.SnapshotKeepDays,1,30);s.IdleHideSeconds=(int)Bound(s.IdleHideSeconds,0,3600);
         var ids=new HashSet<string>();
-        foreach(var g in s.Groups){if(String.IsNullOrEmpty(g.Id)||!ids.Add(g.Id))throw new InvalidDataException("分组 ID 重复或为空");g.Items=g.Items??new List<string>();g.IgnoreRules=g.IgnoreRules??new List<IgnoreRule>();IgnoreRule.Validate(g.IgnoreRules);g.Width=Bound(g.Width,220,2000);g.Height=Bound(g.Height,100,2000);g.X=Bound(g.X,-20000,20000);g.Y=Bound(g.Y,-20000,20000);g.Opacity=Bound(g.Opacity,.3,1);NormalizeStyle(g);g.Page=Math.Max(0,Math.Min(s.Pages-1,g.Page));if(String.IsNullOrEmpty(g.Color))g.Color="#77BFA3";if(String.IsNullOrEmpty(g.LabelColor))g.LabelColor="#E8EDF6";if(String.IsNullOrEmpty(g.TitleMode))g.TitleMode="总是";if(String.IsNullOrEmpty(g.ViewMode))g.ViewMode="图标";g.Folders=g.Folders??new List<string>();if(g.Folders.Count==0&&!String.IsNullOrEmpty(g.Folder))g.Folders.Add(g.Folder);if(g.Kind!="文件夹"&&g.Kind!="工作"&&g.Kind!="应用")g.Kind=!String.IsNullOrEmpty(g.Folder)?"文件夹":"普通";if(g.Kind=="文件夹"){g.FolderIndex=g.Folders.Count==0?-1:Math.Max(String.IsNullOrEmpty(g.Folder)?-1:0,Math.Min(g.Folders.Count-1,g.FolderIndex));}else{g.Folder="";g.FolderIndex=g.Folders.Count==0?-1:Math.Max(-1,Math.Min(g.Folders.Count-1,g.FolderIndex));}}
+        foreach(var g in s.Groups){if(String.IsNullOrEmpty(g.Id)||!ids.Add(g.Id))throw new InvalidDataException("分组 ID 重复或为空");g.Items=g.Items??new List<string>();g.IgnoreRules=g.IgnoreRules??new List<IgnoreRule>();IgnoreRule.Validate(g.IgnoreRules);g.FolderIgnoreRules=g.FolderIgnoreRules??new Dictionary<string,List<IgnoreRule>>(StringComparer.OrdinalIgnoreCase);foreach(var rules in g.FolderIgnoreRules.Values)IgnoreRule.Validate(rules);g.Width=Bound(g.Width,220,2000);g.Height=Bound(g.Height,100,2000);g.X=Bound(g.X,-20000,20000);g.Y=Bound(g.Y,-20000,20000);g.Opacity=Bound(g.Opacity,.3,1);NormalizeStyle(g);g.Page=Math.Max(0,Math.Min(s.Pages-1,g.Page));if(String.IsNullOrEmpty(g.Color))g.Color="#77BFA3";if(String.IsNullOrEmpty(g.LabelColor))g.LabelColor="#E8EDF6";if(String.IsNullOrEmpty(g.TitleMode))g.TitleMode="总是";if(String.IsNullOrEmpty(g.ViewMode))g.ViewMode="图标";g.Folders=g.Folders??new List<string>();if(g.Folders.Count==0&&!String.IsNullOrEmpty(g.Folder))g.Folders.Add(g.Folder);if(g.Kind!="文件夹"&&g.Kind!="工作"&&g.Kind!="应用")g.Kind=!String.IsNullOrEmpty(g.Folder)?"文件夹":"普通";if(g.Kind=="文件夹"){g.FolderIndex=g.Folders.Count==0?-1:Math.Max(String.IsNullOrEmpty(g.Folder)?-1:0,Math.Min(g.Folders.Count-1,g.FolderIndex));}else{g.Folder="";g.FolderIndex=g.Folders.Count==0?-1:Math.Max(-1,Math.Min(g.Folders.Count-1,g.FolderIndex));}}
+        foreach(var g in s.Groups)g.FolderIgnoreRules=new Dictionary<string,List<IgnoreRule>>(g.FolderIgnoreRules,StringComparer.OrdinalIgnoreCase);
         foreach(var g in s.Groups){if(String.IsNullOrEmpty(g.HostGroupId))continue;var host=s.Groups.FirstOrDefault(x=>x.Id==g.HostGroupId);if(host==null||host==g||!String.IsNullOrEmpty(host.HostGroupId)){g.HostGroupId="";continue;}g.Page=host.Page;}
         foreach(var g in s.Groups.Where(x=>String.IsNullOrEmpty(x.HostGroupId)))if(g.ActiveGroupId!=g.Id&&!s.Groups.Any(x=>x.HostGroupId==g.Id&&x.Id==g.ActiveGroupId))g.ActiveGroupId=g.Id;
     }
@@ -287,7 +292,7 @@ public class Store {
             foreach(string f in files){if(Path.GetFileName(f).Equals("desktop.ini",StringComparison.OrdinalIgnoreCase))continue;try{if((File.GetAttributes(f)&FileAttributes.Hidden)!=0)continue;}catch{continue;}if(found.Add(f))yield return f;}}
     }
     public Group Assigned(string path){return Data.Groups.FirstOrDefault(g=>String.IsNullOrEmpty(g.Folder)&&g.Items.Contains(path,StringComparer.OrdinalIgnoreCase));}
-    public bool Ignored(string path,Group group){return Data.IgnoreRules.Any(r=>r.Matches(path))||(group!=null&&group.IgnoreRules.Any(r=>r.Matches(path)))||WorkDetection.AutoIgnored(Data,path)||IgnoreFiles.Ignored(Data,path,group);}
+    public bool Ignored(string path,Group group){return Data.IgnoreRules.Any(r=>r.Matches(path))||(group!=null&&group.IgnoreRules.Any(r=>r.Matches(path)))||(group!=null&&group.FolderIgnoreRules!=null&&group.FolderIgnoreRules.Any(entry=>WorkDetection.Under(path,entry.Key)&&entry.Value.Any(r=>r.Matches(path))))||WorkDetection.AutoIgnored(Data,path)||IgnoreFiles.Ignored(Data,path,group);}
     public Group Match(string path){if(Ignored(path,null))return null;foreach(var rule in Data.Rules){if(!rule.Matches(path))continue;var g=Data.Groups.FirstOrDefault(x=>x.Id==rule.GroupId&&String.IsNullOrEmpty(x.Folder));if(g!=null)return Ignored(path,g)?null:g;}var fallback=Data.Groups.FirstOrDefault(g=>String.IsNullOrEmpty(g.Folder)&&g.Name=="收件箱")??Data.Groups.FirstOrDefault(g=>String.IsNullOrEmpty(g.Folder));return Ignored(path,fallback)?null:fallback;}
     public void Assign(string path,Group target){if(!Exists(path)||!String.IsNullOrEmpty(target.Folder))return;path=Path.GetFullPath(path);foreach(var g in Data.Groups)g.Items.RemoveAll(p=>String.Equals(p,path,StringComparison.OrdinalIgnoreCase));Data.Excluded.RemoveAll(p=>String.Equals(p,path,StringComparison.OrdinalIgnoreCase));target.Items.Add(path);}
     public void RemoveFromGroups(string path){try{path=Path.GetFullPath(path);}catch{}string original=DesktopOrganization.Release(Data,path);foreach(var g in Data.Groups)g.Items.RemoveAll(p=>String.Equals(p,path,StringComparison.OrdinalIgnoreCase));if(!Data.Excluded.Contains(original,StringComparer.OrdinalIgnoreCase))Data.Excluded.Add(original);}

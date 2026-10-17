@@ -30,6 +30,7 @@ public sealed class WorkspacePanel : Window {
     readonly Border searchBar;
     readonly TextBlock titleText,summary,hint,emptyText;
     readonly Border ignoreTarget;
+    Border addTab;
     readonly TextBlock ignoreIcon;
     readonly List<PortalSession> sessions=new List<PortalSession>();
     readonly List<string> clipboard=new List<string>();
@@ -58,28 +59,34 @@ public sealed class WorkspacePanel : Window {
         titleText=Ui.Text("工作区面板",13,Ui.DesktopMuted);titleText.Margin=new Thickness(0);titleText.VerticalAlignment=VerticalAlignment.Center;titleText.Cursor=Cursors.SizeAll;titleText.ToolTip="按住拖动面板";
         header.Children.Add(titleText);
         tabBar=new StackPanel(){Orientation=Orientation.Horizontal,VerticalAlignment=VerticalAlignment.Center};
-        tabScroll=new ScrollViewer(){Content=tabBar,HorizontalScrollBarVisibility=ScrollBarVisibility.Auto,VerticalScrollBarVisibility=ScrollBarVisibility.Disabled,Margin=new Thickness(10,0,8,0),VerticalAlignment=VerticalAlignment.Center,AllowDrop=true};
+        tabScroll=new ScrollViewer(){Content=tabBar,HorizontalScrollBarVisibility=ScrollBarVisibility.Hidden,VerticalScrollBarVisibility=ScrollBarVisibility.Disabled,Margin=new Thickness(10,0,8,0),VerticalAlignment=VerticalAlignment.Center,AllowDrop=true};
+        tabScroll.PreviewMouseWheel+=delegate(object s,MouseWheelEventArgs e){tabScroll.ScrollToHorizontalOffset(tabScroll.HorizontalOffset-Math.Sign(e.Delta)*90);e.Handled=true;};
         tabScroll.DragOver+=delegate(object s,DragEventArgs e){e.Effects=HasDirectory(e.Data)?DragDropEffects.Link:DragDropEffects.None;e.Handled=true;};
         tabScroll.Drop+=delegate(object s,DragEventArgs e){e.Handled=true;AddFolders(Functions.DragPaths(e.Data));};
+        tabScroll.MouseEnter+=delegate{if(addTab!=null){addTab.Opacity=1;addTab.IsHitTestVisible=true;}};
+        tabScroll.MouseLeave+=delegate{if(addTab!=null){addTab.Opacity=0;addTab.IsHitTestVisible=false;}};
         tabScroll.ContextMenu=BuildTabBarMenu();
         Grid.SetColumn(tabScroll,1);header.Children.Add(tabScroll);
-        var actions=new StackPanel(){Orientation=Orientation.Horizontal,VerticalAlignment=VerticalAlignment.Center};
-        ignoreIcon=Ui.Text(controller.Store.Data.PanelIgnoreIcon,15,Ui.DesktopMuted);ignoreIcon.Margin=new Thickness(0);ignoreIcon.HorizontalAlignment=HorizontalAlignment.Center;ignoreIcon.VerticalAlignment=VerticalAlignment.Center;
-        ignoreTarget=new Border(){Child=ignoreIcon,Width=30,Height=28,CornerRadius=new CornerRadius(8),BorderThickness=new Thickness(1),BorderBrush=Ui.Brush("#42536B"),Background=Brushes.Transparent,Margin=new Thickness(0,0,6,0),AllowDrop=true,ToolTip="把文件或文件夹拖到这里加入忽略；右键可更换图标"};
+        var actions=new StackPanel(){Orientation=Orientation.Horizontal,VerticalAlignment=VerticalAlignment.Center,Opacity=0,IsHitTestVisible=false};
+        ignoreIcon=Ui.Text(controller.Store.Data.PanelIgnoreIcon,18,Ui.DesktopMuted);ignoreIcon.Margin=new Thickness(0);ignoreIcon.HorizontalAlignment=HorizontalAlignment.Center;ignoreIcon.VerticalAlignment=VerticalAlignment.Center;
+        ignoreTarget=new Border(){Child=ignoreIcon,Width=32,Height=32,CornerRadius=new CornerRadius(8),BorderThickness=new Thickness(1),BorderBrush=Ui.Brush("#42536B"),Background=Brushes.Transparent,Margin=new Thickness(0,0,4,0),AllowDrop=true,ToolTip="把文件或文件夹拖到这里加入忽略；右键可更换图标"};
         ignoreTarget.DragOver+=delegate(object s,DragEventArgs e){bool ok=Functions.DragPaths(e.Data)!=null;e.Effects=ok?DragDropEffects.Link:DragDropEffects.None;ignoreTarget.BorderBrush=ok?Ui.Accent:Ui.Brush("#42536B");e.Handled=true;};
         ignoreTarget.DragLeave+=delegate{ignoreTarget.BorderBrush=Ui.Brush("#42536B");};
         ignoreTarget.Drop+=delegate(object s,DragEventArgs e){e.Handled=true;ignoreTarget.BorderBrush=Ui.Brush("#42536B");IgnoreDropped(Functions.DragPaths(e.Data));};
-        var ignoreMenu=new ContextMenu();
-        foreach(string glyph in PanelFiles.IgnoreIcons){string choice=glyph;ignoreMenu.Items.Add(Ui.Menu(choice+"   忽略图标",delegate{controller.Store.Data.PanelIgnoreIcon=choice;ignoreIcon.Text=choice;controller.Store.Save();}));}
-        ignoreMenu.Items.Add(new Separator());
-        ignoreMenu.Items.Add(Ui.Menu("查看与编辑忽略规则",delegate{if(controller.Manager!=null)controller.Manager.ShowIgnoreRules(null);}));
-        ignoreTarget.ContextMenu=ignoreMenu;
+        ignoreTarget.ContextMenu=new ContextMenu();
+        ignoreTarget.ContextMenuOpening+=delegate{ignoreTarget.ContextMenu=BuildIgnoreMenu();};
         actions.Children.Add(ignoreTarget);
         var petButton=Small("猫",delegate{if(controller.Manager!=null)controller.Manager.TogglePet();},"显示 / 隐藏桌面小猫");actions.Children.Add(petButton);
         var pin=Small("⌖",PinToDesktop,"钉到桌面：把面板变回一个桌面分区");actions.Children.Add(pin);
         var rescan=Small("⟳",delegate{lastSignature=null;lastTabSignature=null;Refresh();},"刷新");actions.Children.Add(rescan);
         var close=Small("×",Dismiss,"收起面板");actions.Children.Add(close);
         Grid.SetColumn(actions,2);header.Children.Add(actions);
+        Action showActions=delegate{actions.Opacity=1;actions.IsHitTestVisible=true;};
+        Action hideActions=delegate{actions.Opacity=0;actions.IsHitTestVisible=false;};
+        header.MouseEnter+=delegate{showActions();};
+        header.MouseLeave+=delegate{hideActions();};
+        header.DragEnter+=delegate{showActions();};
+        header.DragLeave+=delegate{hideActions();};
         header.MouseLeftButtonDown+=delegate(object s,MouseButtonEventArgs e){if(Inside(e.OriginalSource,tabScroll)||Inside(e.OriginalSource,actions))return;BeginMoveWindow(e);};
         header.ContextMenu=BuildBackgroundMenu();
         Grid.SetRow(header,0);grid.Children.Add(header);
@@ -97,6 +104,9 @@ public sealed class WorkspacePanel : Window {
         emptyText=Ui.Text("",12,Ui.DesktopMuted);emptyText.Margin=new Thickness(12,16,12,12);emptyText.Visibility=Visibility.Collapsed;
         var content=new StackPanel();content.Children.Add(emptyText);content.Children.Add(tiles);content.Children.Add(rows);
         scroll=new ScrollViewer(){Content=content,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,Margin=new Thickness(4,0,4,0),Focusable=false};
+        scroll.Loaded+=delegate{Ui.SetVerticalScrollBarOpacity(scroll,scroll.IsMouseOver?1:0);};
+        scroll.MouseEnter+=delegate{Ui.SetVerticalScrollBarOpacity(scroll,1);};
+        scroll.MouseLeave+=delegate{Ui.SetVerticalScrollBarOpacity(scroll,0);};
         scroll.AllowDrop=true;
         scroll.PreviewDragOver+=delegate(object s,DragEventArgs e){e.Effects=DropEffect(e);e.Handled=true;};
         scroll.Drop+=delegate(object s,DragEventArgs e){e.Handled=true;DropInto(e,CurrentFolder);};
@@ -105,13 +115,13 @@ public sealed class WorkspacePanel : Window {
         Grid.SetRow(scroll,2);grid.Children.Add(scroll);
         // ---- 底部提示 ----
         hint=Ui.Text("Ctrl＋滚轮 缩放    Ctrl＋F 搜索    Enter 打开    F2 重命名    Delete 删除    Ctrl＋C/X/V 复制剪切粘贴    拖动=移动，Ctrl＋拖动=复制    左键拖空白处移动面板",11,Ui.DesktopMuted);
-        hint.Margin=new Thickness(14,4,12,2);hint.TextTrimming=TextTrimming.CharacterEllipsis;
+        hint.Margin=new Thickness(14,4,12,2);hint.TextTrimming=TextTrimming.CharacterEllipsis;hint.Visibility=Visibility.Collapsed;
         summary=Ui.Text("",11,Ui.DesktopMuted);summary.Margin=new Thickness(14,0,12,9);summary.TextTrimming=TextTrimming.CharacterEllipsis;
         var footer=new StackPanel();footer.Children.Add(hint);footer.Children.Add(summary);
         Grid.SetRow(footer,3);grid.Children.Add(footer);
         // 左右边缘可拖动改宽
-        var right=new Thumb(){Width=8,HorizontalAlignment=HorizontalAlignment.Right,Background=Ui.Brush("#77BFA3"),Opacity=.10,Cursor=Cursors.SizeWE};
-        var left=new Thumb(){Width=8,HorizontalAlignment=HorizontalAlignment.Left,Background=Ui.Brush("#77BFA3"),Opacity=.10,Cursor=Cursors.SizeWE};
+        var right=new Thumb(){Width=8,Height=72,HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Center,Background=Ui.Brush("#77BFA3"),Opacity=.10,Cursor=Cursors.SizeWE};
+        var left=new Thumb(){Width=8,Height=72,HorizontalAlignment=HorizontalAlignment.Left,VerticalAlignment=VerticalAlignment.Center,Background=Ui.Brush("#77BFA3"),Opacity=.10,Cursor=Cursors.SizeWE};
         Grid.SetRow(right,0);Grid.SetRowSpan(right,4);Grid.SetRow(left,0);Grid.SetRowSpan(left,4);
         right.DragDelta+=delegate(object s,DragDeltaEventArgs e){Width=Math.Max(PanelMinWidth,Width+e.HorizontalChange);RememberBounds();};
         left.DragDelta+=delegate(object s,DragDeltaEventArgs e){double change=Math.Min(e.HorizontalChange,Width-PanelMinWidth);Left+=change;Width-=change;RememberBounds();};
@@ -139,12 +149,36 @@ public sealed class WorkspacePanel : Window {
         LoadTabs();
     }
     Border Small(string glyph,Action action,string tip){
-        var text=Ui.Text(glyph,14,Ui.DesktopMuted);text.Margin=new Thickness(0);text.HorizontalAlignment=HorizontalAlignment.Center;text.VerticalAlignment=VerticalAlignment.Center;
-        var button=new Border(){Child=text,Width=28,Height=28,CornerRadius=new CornerRadius(8),BorderThickness=new Thickness(1),BorderBrush=Brushes.Transparent,Background=Brushes.Transparent,Margin=new Thickness(0,0,4,0),Cursor=Cursors.Hand,ToolTip=tip};
+        var text=Ui.Text(glyph,17,Ui.DesktopMuted);text.Margin=new Thickness(0);text.HorizontalAlignment=HorizontalAlignment.Center;text.VerticalAlignment=VerticalAlignment.Center;
+        var button=new Border(){Child=text,Width=32,Height=32,CornerRadius=new CornerRadius(8),BorderThickness=new Thickness(1),BorderBrush=Brushes.Transparent,Background=Brushes.Transparent,Margin=new Thickness(0,0,2,0),Cursor=Cursors.Hand,ToolTip=tip};
         button.MouseEnter+=delegate{text.Foreground=Ui.DesktopInk;button.BorderBrush=Ui.Brush("#42536B");};
         button.MouseLeave+=delegate{text.Foreground=Ui.DesktopMuted;button.BorderBrush=Brushes.Transparent;};
         button.MouseLeftButtonUp+=delegate(object s,MouseButtonEventArgs e){e.Handled=true;action();};
         return button;
+    }
+    List<IgnoreRule> ActiveIgnoreRules{
+        get{var group=CurrentGroup;if(group!=null)return group.IgnoreRules;var tab=CurrentTab;return tab==null?controller.Store.Data.IgnoreRules:tab.IgnoreRules;}
+    }
+    ContextMenu BuildIgnoreMenu(PanelTab selected=null){
+        var menu=new ContextMenu();var tab=selected??CurrentTab;var group=tab==null||tab.IsFolder?null:controller.Store.Data.Groups.FirstOrDefault(g=>g.Id==tab.GroupId);
+        var global=controller.Store.Data.IgnoreRules;
+        menu.Items.Add(new MenuItem(){Header="全局规则 · "+global.Count+" 条",IsEnabled=false});
+        foreach(var rule in global.Take(12).ToArray()){var current=rule;menu.Items.Add(Ui.Menu("取消全局忽略 · "+current.Pattern,delegate{global.Remove(current);controller.Store.Save();lastSignature=null;Refresh();}));}
+        menu.Items.Add(new Separator());
+        string scope=group!=null?group.Name:tab!=null&&tab.IsFolder?FilePresentation.FolderName(tab.Folder):"工作区面板";
+        menu.Items.Add(new MenuItem(){Header="忽略规则 · "+scope,IsEnabled=false});
+        var rules=group!=null?group.IgnoreRules:tab!=null?tab.IgnoreRules:controller.Store.Data.IgnoreRules;
+        if(rules.Count==0)menu.Items.Add(new MenuItem(){Header="当前标签没有忽略项",IsEnabled=false});
+        foreach(var rule in rules.ToArray()){
+            var current=rule;
+            menu.Items.Add(Ui.Menu("取消忽略 · "+current.Pattern,delegate{rules.Remove(current);controller.Store.Save();lastSignature=null;Refresh();}));
+        }
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Ui.Menu("编辑全局和当前分区规则",delegate{if(controller.Manager!=null)controller.Manager.ShowIgnoreRules(group,tab);}));
+        var icons=new MenuItem(){Header="更换忽略图标"};
+        foreach(string glyph in PanelFiles.IgnoreIcons){string choice=glyph;icons.Items.Add(Ui.Menu(choice,delegate{controller.Store.Data.PanelIgnoreIcon=choice;ignoreIcon.Text=choice;controller.Store.Save();}));}
+        menu.Items.Add(icons);
+        return menu;
     }
     static bool Inside(object source,DependencyObject ancestor){
         var node=source as DependencyObject;
@@ -183,8 +217,8 @@ public sealed class WorkspacePanel : Window {
                 string full;try{full=Path.GetFullPath(tab.Folder);}catch{continue;}
                 if(!Directory.Exists(full))continue;
                 if(kept.Any(t=>t.IsFolder&&String.Equals(t.Folder,full,StringComparison.OrdinalIgnoreCase)))continue;
-                kept.Add(PanelTab.OfFolder(full));
-            }else if(data.Groups.Any(g=>g.Id==tab.GroupId)&&!kept.Any(t=>!t.IsFolder&&t.GroupId==tab.GroupId))kept.Add(PanelTab.OfGroup(tab.GroupId));
+                tab.Folder=full;kept.Add(tab);
+            }else if(data.Groups.Any(g=>g.Id==tab.GroupId)&&!kept.Any(t=>!t.IsFolder&&t.GroupId==tab.GroupId))kept.Add(tab);
         }
         data.PanelTabs=kept;
         if(data.PanelTabs.Count==0){string current=WorkspaceSelection.Current(data);if(!String.IsNullOrEmpty(current)&&Directory.Exists(current))data.PanelTabs.Add(PanelTab.OfFolder(current));}
@@ -226,7 +260,17 @@ public sealed class WorkspacePanel : Window {
         var data=controller.Store.Data;bool changed=false;
         foreach(string id in groupIds){
             var group=data.Groups.FirstOrDefault(g=>g.Id==id);if(group==null)continue;
-            if(group.Kind=="文件夹"&&group.Folders.Count>0){foreach(string folder in group.Folders)if(AddFolder(folder))changed=true;continue;}
+            if(group.Kind=="文件夹"&&group.Folders.Count>0){
+                foreach(string folder in group.Folders){
+                    if(AddFolder(folder))changed=true;
+                    var folderTab=data.PanelTabs.FirstOrDefault(t=>t.IsFolder&&String.Equals(t.Folder,folder,StringComparison.OrdinalIgnoreCase));
+                    List<IgnoreRule> rules;
+                    if(folderTab!=null&&group.FolderIgnoreRules.TryGetValue(folder,out rules))folderTab.IgnoreRules=rules.ToList();
+                }
+                foreach(var child in data.Groups.Where(g=>g.HostGroupId==group.Id))if(!data.PanelTabs.Any(t=>!t.IsFolder&&t.GroupId==child.Id)){data.PanelTabs.Add(PanelTab.OfGroup(child.Id));changed=true;}
+                if(controller.Manager!=null)controller.Manager.HideDesktopCopies(new[]{group.Id});
+                continue;
+            }
             if(!data.PanelTabs.Any(t=>!t.IsFolder&&t.GroupId==id)){data.PanelTabs.Add(PanelTab.OfGroup(id));changed=true;}
             data.PanelIndex=data.PanelTabs.Count-1;
         }
@@ -277,7 +321,7 @@ public sealed class WorkspacePanel : Window {
     public void Dismiss(){
         if(!IsVisible)return;
         Hide();
-        if(controller.Manager!=null)controller.Manager.RestoreDesktopCopies(GroupTabs());
+        if(controller.Manager!=null)controller.Manager.RestoreDesktopCopies(null);
     }
     void RememberBounds(){
         if(closed||applyingBounds||!IsLoaded)return;
@@ -301,7 +345,7 @@ public sealed class WorkspacePanel : Window {
         if(closed)return;
         RefreshTabs();
         var data=controller.Store.Data;var tab=CurrentTab;
-        titleText.Text=data.PanelTabs.Count==0?"工作区面板":"工作区面板 · "+data.PanelTabs.Count+" 个标签";
+        titleText.Text="工作区面板";titleText.Visibility=data.PanelTabs.Count==0?Visibility.Visible:Visibility.Collapsed;
         if(tab==null){
             ShowEmpty(data.PanelTabs.Count==0?"把文件夹拖到顶部栏位，或点 ＋ 添加一个标签。":"这些标签暂时不可用，用 ＋ 重新添加一个。");
             return;
@@ -326,7 +370,7 @@ public sealed class WorkspacePanel : Window {
             if(items.Length==0&&atRoot)emptyText.Text=IsFolderTab?"此文件夹为空；可以把文件拖进来。":"这个分区还没有项目。";
         }
         string label=tab.IsFolder?FilePresentation.FolderName(folder):(CurrentGroup==null?"分区":CurrentGroup.Name);
-        summary.Text=label+" · "+items.Length+" 项 · "+(tab.IsFolder?folder:"桌面分区（只浏览，不移动文件）");
+        summary.Text=label+" · "+items.Length+" 项";
         summary.ToolTip=tab.IsFolder?folder:null;
         Thumbnails.RequestVisible(scroll);
     }
@@ -339,7 +383,7 @@ public sealed class WorkspacePanel : Window {
         if(tab.IsFolder){
             string folder=CurrentFolder;
             if(String.IsNullOrEmpty(folder)||!Directory.Exists(folder))return null;
-            try{return Directory.GetFileSystemEntries(folder).Where(p=>!Path.GetFileName(p).Equals("desktop.ini",StringComparison.OrdinalIgnoreCase)).Where(p=>!PanelFiles.Ignored(data,p)).ToArray();}
+            try{return Directory.GetFileSystemEntries(folder).Where(p=>!Path.GetFileName(p).Equals("desktop.ini",StringComparison.OrdinalIgnoreCase)).Where(p=>!PanelFiles.Ignored(data,p,tab.IgnoreRules)).ToArray();}
             catch{return null;}
         }
         var group=data.Groups.FirstOrDefault(g=>g.Id==tab.GroupId);
@@ -357,12 +401,14 @@ public sealed class WorkspacePanel : Window {
             int index=i;bool active=index==data.PanelIndex;var tab=data.PanelTabs[i];
             string label=tab.IsFolder?FilePresentation.FolderName(tab.Folder):(data.Groups.FirstOrDefault(g=>g.Id==tab.GroupId)==null?"分区":data.Groups.FirstOrDefault(g=>g.Id==tab.GroupId).Name);
             string tooltip=tab.IsFolder?tab.Folder:"桌面分区 · "+label;
-            var text=Ui.Text((tab.IsFolder?"":"▤ ")+label,13,active?Ui.DesktopInk:Ui.DesktopMuted);text.Margin=new Thickness(0);text.TextTrimming=TextTrimming.CharacterEllipsis;text.VerticalAlignment=VerticalAlignment.Center;text.MaxWidth=190;
+            var text=Ui.Text(label,17,active?Ui.DesktopInk:Ui.DesktopMuted);text.Margin=new Thickness(0);text.TextTrimming=TextTrimming.CharacterEllipsis;text.VerticalAlignment=VerticalAlignment.Center;text.MaxWidth=190;
             if(active)text.FontWeight=FontWeights.SemiBold;
-            var close=new TextBlock(){Text="×",FontSize=11,Foreground=Ui.DesktopMuted,Margin=new Thickness(6,0,0,0),Cursor=Cursors.Hand,VerticalAlignment=VerticalAlignment.Center};
+            var close=new TextBlock(){Text="×",FontSize=12,Foreground=Ui.DesktopMuted,Margin=new Thickness(6,0,0,0),Cursor=Cursors.Hand,VerticalAlignment=VerticalAlignment.Center,Opacity=0,IsHitTestVisible=false};
             close.MouseLeftButtonDown+=delegate(object s,MouseButtonEventArgs e){e.Handled=true;RemoveTab(index);};
             var row=new StackPanel(){Orientation=Orientation.Horizontal};row.Children.Add(text);row.Children.Add(close);
-            var box=new Border(){Child=row,Cursor=Cursors.Hand,Padding=new Thickness(10,4,8,4),Margin=new Thickness(0,0,5,0),CornerRadius=new CornerRadius(12),Background=active?new SolidColorBrush(Color.FromArgb(70,120,160,210)):Brushes.Transparent,BorderBrush=Ui.Brush(VisualStyle.Color),BorderThickness=new Thickness(active?1.4:1),ToolTip=tooltip+"\n左键切换，中键或 × 关闭",AllowDrop=true};
+            var box=new Border(){Child=row,Cursor=Cursors.Hand,Padding=new Thickness(7,2,7,2),Margin=new Thickness(0,0,5,0),CornerRadius=new CornerRadius(0),Background=Brushes.Transparent,BorderBrush=Ui.Brush(VisualStyle.Color),BorderThickness=new Thickness(0,0,0,active?2:0),ToolTip=tooltip+"\n左键切换，中键或悬停后点 × 关闭",AllowDrop=true};
+            box.MouseEnter+=delegate{close.Opacity=1;close.IsHitTestVisible=true;};
+            box.MouseLeave+=delegate{close.Opacity=0;close.IsHitTestVisible=false;};
             box.MouseLeftButtonDown+=delegate(object s,MouseButtonEventArgs e){e.Handled=true;SelectTab(index);};
             box.MouseDown+=delegate(object s,MouseButtonEventArgs e){if(e.ChangedButton==MouseButton.Middle){e.Handled=true;RemoveTab(index);}};
             box.DragOver+=delegate(object s,DragEventArgs e){var paths=Functions.DragPaths(e.Data);e.Effects=paths==null?DragDropEffects.None:paths.All(Directory.Exists)?DragDropEffects.Link:DropEffect(e,tab.IsFolder?tab.Folder:"");e.Handled=true;};
@@ -375,6 +421,7 @@ public sealed class WorkspacePanel : Window {
             }else{
                 menu.Items.Add(Ui.Menu("在桌面上显示这个分区",delegate{if(controller.Manager!=null){controller.Manager.RestoreDesktopCopy(tab.GroupId);RemoveTab(index);}}));
             }
+            menu.Items.Add(Ui.Menu("管理此标签的忽略规则",delegate{ignoreTarget.ContextMenu=BuildIgnoreMenu(tab);ignoreTarget.ContextMenu.PlacementTarget=box;ignoreTarget.ContextMenu.IsOpen=true;}));
             menu.Items.Add(new Separator());
             menu.Items.Add(Ui.Menu("左移一位",delegate{MoveTab(index,-1);}));
             menu.Items.Add(Ui.Menu("右移一位",delegate{MoveTab(index,1);}));
@@ -383,8 +430,9 @@ public sealed class WorkspacePanel : Window {
             box.ContextMenu=menu;
             tabBar.Children.Add(box);
         }
-        var add=new Border(){Child=new TextBlock(){Text="＋",FontSize=15,Foreground=Ui.DesktopMuted,VerticalAlignment=VerticalAlignment.Center},Padding=new Thickness(9,2,9,4),Margin=new Thickness(2,0,0,0),CornerRadius=new CornerRadius(12),BorderBrush=Ui.Brush("#42536B"),BorderThickness=new Thickness(1),Cursor=Cursors.Hand,ToolTip="选择文件夹作为新标签"};
+        var add=new Border(){Child=new TextBlock(){Text="＋",FontSize=17,Foreground=Ui.DesktopMuted,VerticalAlignment=VerticalAlignment.Center},Padding=new Thickness(5,1,5,3),Margin=new Thickness(2,0,0,0),CornerRadius=new CornerRadius(0),BorderBrush=Brushes.Transparent,BorderThickness=new Thickness(0),Cursor=Cursors.Hand,ToolTip="选择文件夹作为新标签",Opacity=0,IsHitTestVisible=false};
         add.MouseLeftButtonDown+=delegate(object s,MouseButtonEventArgs e){e.Handled=true;ChooseFolder();};
+        addTab=add;
         tabBar.Children.Add(add);
     }
     ContextMenu BuildTabBarMenu(){
@@ -497,7 +545,7 @@ public sealed class WorkspacePanel : Window {
     IEnumerable<string> TreeChildren(string folder){
         var data=controller.Store.Data;string[] entries;
         try{entries=Directory.GetFileSystemEntries(folder);}catch{return new string[0];}
-        return entries.Where(p=>!Path.GetFileName(p).Equals("desktop.ini",StringComparison.OrdinalIgnoreCase)).Where(p=>!PanelFiles.Ignored(data,p)).OrderByDescending(Directory.Exists).ThenBy(Path.GetFileName,StringComparer.CurrentCultureIgnoreCase);
+        return entries.Where(p=>!Path.GetFileName(p).Equals("desktop.ini",StringComparison.OrdinalIgnoreCase)).Where(p=>!PanelFiles.Ignored(data,p,CurrentTab==null?null:CurrentTab.IgnoreRules)).OrderByDescending(Directory.Exists).ThenBy(Path.GetFileName,StringComparer.CurrentCultureIgnoreCase);
     }
     Border TreeUpRow(){
         var text=Ui.Text("↑ 上一层",12,Ui.DesktopInk);text.Margin=new Thickness(0);text.VerticalAlignment=VerticalAlignment.Center;
@@ -623,17 +671,17 @@ public sealed class WorkspacePanel : Window {
     }
     void IgnoreDropped(string[] paths){
         if(paths==null||paths.Length==0)return;
-        var data=controller.Store.Data;int added=0,skipped=0;
+        var rules=ActiveIgnoreRules;var pending=new List<IgnoreRule>();int skipped=0;
         try{
             foreach(string path in paths){
                 if(!Store.Exists(path))continue;
-                if(PanelFiles.IsIgnoredPath(data,path)){skipped++;continue;}
-                data.IgnoreRules.Add(PanelFiles.MakeIgnoreRule(path));added++;
+                if(PanelFiles.HasExactIgnore(rules.Concat(pending),path)){skipped++;continue;}
+                pending.Add(PanelFiles.MakeIgnoreRule(path));
             }
-            IgnoreRule.Validate(data.IgnoreRules);
+            IgnoreRule.Validate(rules.Concat(pending).ToList());
         }catch(Exception ex){summary.Text="忽略规则未添加："+ex.Message;return;}
-        if(added>0){controller.Store.Save();lastSignature=null;Refresh();}
-        summary.Text=added==0?"这些项目已经在忽略列表里了。":"已忽略 "+added+" 项"+(skipped>0?"，跳过 "+skipped+" 项":"")+"；右键图标可查看与撤销。";
+        if(pending.Count>0){controller.Store.Checkpoint();rules.AddRange(pending);controller.Store.Save();lastSignature=null;Refresh();}
+        summary.Text=pending.Count==0?"这些项目已经在此标签的忽略列表里了。":"此标签已忽略 "+pending.Count+" 项"+(skipped>0?"，跳过 "+skipped+" 项":"")+"；右键忽略图标可撤销。";
     }
     // ---- 钉到桌面：把面板变回一个分区 ----
     public void PinToDesktop(){
@@ -648,6 +696,7 @@ public sealed class WorkspacePanel : Window {
             if(host==null){host=new Group(){Name=FilePresentation.FolderName(folders[0]),Kind="文件夹"};data.Groups.Add(host);}
             host.Name=FilePresentation.FolderName(folders[0]);host.Kind="文件夹";host.Folders=folders.ToList();host.FolderIndex=Math.Max(0,Math.Min(folders.Length-1,IndexOfFolderTab(data,folders)));
             host.Folder=folders[0];
+            host.FolderIgnoreRules=data.PanelTabs.Where(t=>t.IsFolder).ToDictionary(t=>t.Folder,t=>t.IgnoreRules.ToList(),StringComparer.OrdinalIgnoreCase);
             host.X=Left;host.Y=Top;host.Width=Width;host.Height=Height;host.Page=data.Page;host.CornerStyle=VisualStyle.CornerStyle;
             host.Color=VisualStyle.Color;host.TintStrength=VisualStyle.TintStrength;host.BackgroundOpacity=VisualStyle.BackgroundOpacity;host.BorderOpacity=VisualStyle.BorderOpacity;
             host.BackgroundStyle=VisualStyle.BackgroundStyle;host.BackgroundImage=VisualStyle.BackgroundImage;host.ImageMode=VisualStyle.ImageMode;
@@ -706,7 +755,8 @@ public sealed class WorkspacePanel : Window {
                 found=group==null?new string[0]:controller.Store.Items(group,"").Where(p=>Path.GetFileName(p).IndexOf(query,StringComparison.OrdinalIgnoreCase)>=0).Take(PanelFiles.SearchLimit).ToArray();
             }else{
                 if(!Directory.Exists(root))return;
-                found=await Task.Run(()=>PanelFiles.Search(snapshot,root,query));
+                var scoped=tab==null?null:tab.IgnoreRules.ToList();
+                found=await Task.Run(()=>PanelFiles.Search(snapshot,root,query,scoped));
             }
             if(closed||token!=generation||searchBar.Visibility!=Visibility.Visible)return;
             RenderResults(found,root,query);
@@ -834,7 +884,7 @@ public sealed class WorkspacePanel : Window {
             }
             menu.Items.Add(new Separator());
             menu.Items.Add(Ui.Menu("忽略此项目",delegate{IgnoreDropped(new[]{path});}));
-            if(PanelFiles.IsIgnoredPath(controller.Store.Data,path)&&controller.Manager!=null)menu.Items.Add(Ui.Menu("取消忽略",delegate{controller.Manager.UnignoreItem(path);lastSignature=null;Refresh();}));
+            if(ActiveIgnoreRules.Any(r=>r.Matches(path)))menu.Items.Add(Ui.Menu("取消此标签的忽略",delegate{ActiveIgnoreRules.RemoveAll(r=>r.Matches(path));controller.Store.Save();lastSignature=null;Refresh();}));
             menu.Items.Add(Ui.Menu("删除（移入回收站）",delegate{if(!selection.Any(p=>String.Equals(p,path,StringComparison.OrdinalIgnoreCase)))Select(path,false);DeleteSelection();}));
         }else{
             menu.Items.Add(new Separator());

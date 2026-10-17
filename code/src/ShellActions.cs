@@ -16,7 +16,39 @@ public static class ShellActions {
         try{var operation=new Operation(){Window=new WindowInteropHelper(owner).Handle,Function=4,From=source,To=target,Flags=0x40};int result=SHFileOperation(ref operation);if(operation.Aborted)return false;if(result!=0)throw new Exception("Windows 重命名未完成，错误代码："+result);return Store.Exists(destination);}finally{Marshal.FreeHGlobal(source);Marshal.FreeHGlobal(target);}
     }
     public static string UpdatePath(string value,string before,string after,bool directory){if(String.IsNullOrEmpty(value))return value;if(String.Equals(value,before,StringComparison.OrdinalIgnoreCase))return after;return directory&&WorkDetection.Under(value,before)?after+value.Substring(before.Length):value;}
-    public static void UpdateReferences(State state,string before,string after,bool directory){foreach(var group in state.Groups){group.Items=group.Items.Select(p=>UpdatePath(p,before,after,directory)).ToList();group.Folder=UpdatePath(group.Folder,before,after,directory);group.Folders=group.Folders.Select(p=>UpdatePath(p,before,after,directory)).ToList();foreach(var rule in group.IgnoreRules.Where(r=>r.Kind=="路径"))rule.Pattern=UpdatePath(rule.Pattern,before,after,directory);}foreach(var tab in state.PanelTabs)if(tab!=null)tab.Folder=UpdatePath(tab.Folder,before,after,directory);if(state.PanelStyle!=null)state.PanelStyle.BackgroundImage=UpdatePath(state.PanelStyle.BackgroundImage,before,after,directory);state.Excluded=state.Excluded.Select(p=>UpdatePath(p,before,after,directory)).ToList();state.IgnoredWorkFolders=state.IgnoredWorkFolders.Select(p=>UpdatePath(p,before,after,directory)).ToList();state.WorkFolders=state.WorkFolders.Select(p=>UpdatePath(p,before,after,directory)).ToList();state.CurrentWorkspace=UpdatePath(state.CurrentWorkspace,before,after,directory);foreach(var set in state.IgnoreFiles){set.Root=UpdatePath(set.Root,before,after,directory);set.Source=UpdatePath(set.Source,before,after,directory);}state.WorkSources=state.WorkSources.ToDictionary(p=>UpdatePath(p.Key,before,after,directory),p=>p.Value);state.WorkConnectedAt=state.WorkConnectedAt.ToDictionary(p=>UpdatePath(p.Key,before,after,directory),p=>p.Value);foreach(var rule in state.IgnoreRules.Where(r=>r.Kind=="路径"))rule.Pattern=UpdatePath(rule.Pattern,before,after,directory);}
+    static void UpdateRulePaths(IEnumerable<IgnoreRule> rules,string before,string after,bool directory){
+        foreach(var rule in rules.Where(r=>r.Kind=="路径"))rule.Pattern=UpdatePath(rule.Pattern,before,after,directory);
+    }
+    public static void UpdateReferences(State state,string before,string after,bool directory){
+        foreach(var group in state.Groups){
+            group.Items=group.Items.Select(p=>UpdatePath(p,before,after,directory)).ToList();
+            group.Folder=UpdatePath(group.Folder,before,after,directory);
+            group.Folders=group.Folders.Select(p=>UpdatePath(p,before,after,directory)).ToList();
+            UpdateRulePaths(group.IgnoreRules,before,after,directory);
+            var folderRules=new Dictionary<string,List<IgnoreRule>>(StringComparer.OrdinalIgnoreCase);
+            foreach(var entry in group.FolderIgnoreRules){
+                string folder=UpdatePath(entry.Key,before,after,directory);
+                List<IgnoreRule> destination;
+                if(!folderRules.TryGetValue(folder,out destination)){destination=new List<IgnoreRule>();folderRules[folder]=destination;}
+                UpdateRulePaths(entry.Value,before,after,directory);
+                destination.AddRange(entry.Value);
+            }
+            group.FolderIgnoreRules=folderRules;
+        }
+        foreach(var tab in state.PanelTabs.Where(t=>t!=null)){
+            tab.Folder=UpdatePath(tab.Folder,before,after,directory);
+            UpdateRulePaths(tab.IgnoreRules,before,after,directory);
+        }
+        if(state.PanelStyle!=null)state.PanelStyle.BackgroundImage=UpdatePath(state.PanelStyle.BackgroundImage,before,after,directory);
+        state.Excluded=state.Excluded.Select(p=>UpdatePath(p,before,after,directory)).ToList();
+        state.IgnoredWorkFolders=state.IgnoredWorkFolders.Select(p=>UpdatePath(p,before,after,directory)).ToList();
+        state.WorkFolders=state.WorkFolders.Select(p=>UpdatePath(p,before,after,directory)).ToList();
+        state.CurrentWorkspace=UpdatePath(state.CurrentWorkspace,before,after,directory);
+        foreach(var set in state.IgnoreFiles){set.Root=UpdatePath(set.Root,before,after,directory);set.Source=UpdatePath(set.Source,before,after,directory);}
+        state.WorkSources=state.WorkSources.ToDictionary(p=>UpdatePath(p.Key,before,after,directory),p=>p.Value);
+        state.WorkConnectedAt=state.WorkConnectedAt.ToDictionary(p=>UpdatePath(p.Key,before,after,directory),p=>p.Value);
+        UpdateRulePaths(state.IgnoreRules,before,after,directory);
+    }
 }
 public partial class ManagerWindow {
     public void ShowFileMenu(Window owner,string path,Group group,Point screen,bool background,Action refresh){

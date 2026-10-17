@@ -12,6 +12,7 @@ using System.Windows.Data;
 namespace QiDesk {
 public partial class ManagerWindow {
     string ignoreScopeId="";
+    PanelTab ignorePanelTab;
     public void IgnoreItem(string path,Group group){
         if(group!=null){group=controller.Store.Data.Groups.FirstOrDefault(g=>g.Id==group.Id);if(group==null)return;}
         var rules=group==null?controller.Store.Data.IgnoreRules:group.IgnoreRules;
@@ -37,18 +38,45 @@ public partial class ManagerWindow {
     public void DeleteTabGroup(Group group){if(group==null)return;DeleteGroup(group);if(workspaceSearch!=null)workspaceSearch.ActivateTab("全部");}
     public void ShowDetails(Group group,string folder){ShowDetails(group,folder,null);}
     public void ShowDetails(Group group,string folder,string selected){new FileDetailsWindow(controller,group,folder,this,selected).Show();}
-    public void ShowIgnoreRules(Group group){ignoreScopeId=group==null?"":group.Id;Show();WindowState=WindowState.Normal;Activate();ShowSettingsPage("忽略文件");}
+    public void ShowIgnoreRules(Group group,PanelTab tab=null){ignoreScopeId=group==null?"":group.Id;ignorePanelTab=tab;Show();WindowState=WindowState.Normal;Activate();ShowSettingsPage("忽略文件");}
     StackPanel IgnorePage(){
         var p=SettingsPage("忽略文件","隐藏匹配的文件和文件夹；全局规则用于所有分区，局部规则仅用于选中的分区。");
-        var groups=controller.Store.Data.Groups.ToArray();var scope=Choice(p,"范围",new[]{"全局"}.Concat(groups.Select(g=>g.Name)),Array.FindIndex(groups,g=>g.Id==ignoreScopeId)+1);var body=new StackPanel();p.Children.Add(body);
+        var groups=controller.Store.Data.Groups.ToArray();var scope=Choice(p,"编辑的分区",new[]{"选择分区"}.Concat(groups.Select(g=>g.Name)),Array.FindIndex(groups,g=>g.Id==ignoreScopeId)+1);var body=new StackPanel();p.Children.Add(body);
         Action rebuild=null;rebuild=delegate{
-            body.Children.Clear();Group group=scope.SelectedIndex<=0?null:groups[scope.SelectedIndex-1];var rules=group==null?controller.Store.Data.IgnoreRules:group.IgnoreRules;
-            body.Children.Add(Ui.Text("名称规则支持 * 和 ?，例如 *.tmp、ChatGPT*、node_modules。右键文件可忽略指定项目。",12,Ui.Muted));var pattern=Ui.Input("");pattern.ToolTip="文件名或通配符";body.Children.Add(pattern);body.Children.Add(Ui.Button("添加名称规则",delegate{try{var rule=new IgnoreRule(){Pattern=pattern.Text.Trim()};IgnoreRule.Validate(new List<IgnoreRule>{rule});if(rules.Count>=500)throw new Exception("当前范围规则已达到上限。");controller.Store.Checkpoint();rules.Add(rule);SaveSettings(false);rebuild();}catch(Exception ex){Ui.Info(ex.Message,this);}}));
-            foreach(var rule in rules.ToArray()){var r=rule;var row=new DockPanel(){Margin=new Thickness(0,6,0,8)};var remove=Ui.Button("恢复显示",delegate{controller.Store.Checkpoint();rules.Remove(r);SaveSettings(false);rebuild();});DockPanel.SetDock(remove,Dock.Right);row.Children.Add(remove);var check=new CheckBox(){Content=r.Kind=="路径"?"指定项目 · "+Path.GetFileName(r.Pattern.TrimEnd(Path.DirectorySeparatorChar)):r.Pattern,IsChecked=r.Enabled,VerticalAlignment=VerticalAlignment.Center,Foreground=Ui.Ink};check.Click+=delegate{controller.Store.Checkpoint();r.Enabled=check.IsChecked==true;SaveSettings(false);};row.Children.Add(check);body.Children.Add(row);}
-            IgnoreFileRows(body,group);
-            if(rules.Count==0)body.Children.Add(Ui.Text("此范围还没有忽略规则。",13,Ui.Muted));
-            body.Children.Add(Ui.Text("被忽略的项目保留原有分组归属，恢复显示后会回到原分组。AI 工作目录的自动忽略可在对应页面单独关闭。",12,Ui.Muted));
+            body.Children.Clear();Group group=scope.SelectedIndex<=0?null:groups[scope.SelectedIndex-1];
+            IgnoreRuleRows(body,"全局规则",controller.Store.Data.IgnoreRules,rebuild);
+            EditableIgnoreFileRows(body,null,rebuild);
+            if(group!=null){
+                IgnoreRuleRows(body,"「"+group.Name+"」的规则",group.IgnoreRules,rebuild);
+                foreach(var folder in group.Folders.ToArray()){
+                    List<IgnoreRule> local;if(!group.FolderIgnoreRules.TryGetValue(folder,out local)){local=new List<IgnoreRule>();group.FolderIgnoreRules[folder]=local;}
+                    IgnoreRuleRows(body,"文件夹标签 · "+FilePresentation.FolderName(folder),local,rebuild);
+                }
+                EditableIgnoreFileRows(body,group,rebuild);
+            }
+            if(ignorePanelTab!=null&&ignorePanelTab.IsFolder){
+                IgnoreRuleRows(body,"面板标签 · "+FilePresentation.FolderName(ignorePanelTab.Folder),ignorePanelTab.IgnoreRules,rebuild);
+            }
+            body.Children.Add(Ui.Text("忽略只影响显示，不移动或删除文件。导入规则以其项目目录为匹配根目录。",12,Ui.Muted));
         };scope.SelectionChanged+=delegate{rebuild();};rebuild();return p;
+    }
+    void IgnoreRuleRows(Panel body,string title,List<IgnoreRule> rules,Action rebuild){
+        Section(body,title);
+        var add=new DockPanel(){Margin=new Thickness(0,2,0,5)};
+        var addButton=Ui.Button("＋ 添加",delegate{});DockPanel.SetDock(addButton,Dock.Right);add.Children.Add(addButton);
+        var pattern=Ui.Input("");pattern.ToolTip="输入文件名或通配符，例如 *.tmp";add.Children.Add(pattern);
+        addButton.Click+=delegate{try{var rule=new IgnoreRule(){Pattern=pattern.Text.Trim()};IgnoreRule.Validate(new List<IgnoreRule>{rule});if(rules.Count>=500)throw new InvalidDataException("当前范围规则已达到上限。");controller.Store.Checkpoint();rules.Add(rule);SaveSettings(false);rebuild();}catch(Exception ex){Ui.Info(ex.Message,this);}};
+        body.Children.Add(add);
+        foreach(var rule in rules.ToArray()){
+            var current=rule;var row=new DockPanel(){Margin=new Thickness(0,1,0,3)};
+            var remove=Ui.Button("×",delegate{controller.Store.Checkpoint();rules.Remove(current);SaveSettings(false);rebuild();});remove.ToolTip="恢复显示";DockPanel.SetDock(remove,Dock.Right);row.Children.Add(remove);
+            var save=Ui.Button("保存",delegate{});DockPanel.SetDock(save,Dock.Right);row.Children.Add(save);
+            var enabled=new CheckBox(){IsChecked=current.Enabled,VerticalAlignment=VerticalAlignment.Center,Margin=new Thickness(0,0,8,0),ToolTip="启用规则"};DockPanel.SetDock(enabled,Dock.Left);row.Children.Add(enabled);
+            enabled.Click+=delegate{controller.Store.Checkpoint();current.Enabled=enabled.IsChecked==true;SaveSettings(false);};
+            var input=Ui.Input(current.Pattern);input.ToolTip=current.Kind=="路径"?"指定路径":"名称规则：支持 * 和 ?";row.Children.Add(input);
+            save.Click+=delegate{try{var candidate=new IgnoreRule(){Id=current.Id,Kind=current.Kind,Pattern=input.Text.Trim(),Enabled=current.Enabled,IncludeChildren=current.IncludeChildren};IgnoreRule.Validate(new List<IgnoreRule>{candidate});controller.Store.Checkpoint();current.Pattern=candidate.Pattern;SaveSettings(false);}catch(Exception ex){Ui.Info(ex.Message,this);}};
+            body.Children.Add(row);
+        }
     }
     StackPanel WorkPage(){
         var p=SettingsPage("AI 工作目录","选择工作文件夹，检测项目标记与生成文件，并自动隐藏符合规则的项目。");var data=controller.Store.Data;

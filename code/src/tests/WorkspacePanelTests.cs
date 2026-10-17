@@ -31,8 +31,27 @@ public static class WorkspacePanelTests {
         check(PanelFiles.Search(state,project,"report").Length==1&&!PanelFiles.Search(state,project,"report").Any(p=>p==report),"workspace panel search honours the existing global ignore rules");
         check(PanelFiles.IsIgnoredPath(state,report)&&!PanelFiles.IsIgnoredPath(state,draft),"ignore state is recognised per item");
         var rule=PanelFiles.MakeIgnoreRule(draft);
-        check(rule.Kind=="名称"&&rule.Pattern=="report-draft.md"&&rule.Enabled,"dropping on the ignore icon creates an enabled name rule");
+        check(rule.Kind=="路径"&&rule.Pattern==IgnoreRule.Canonical(draft)&&rule.Enabled,"dropping on the ignore icon creates an enabled exact-path rule");
+        string sameName=Path.Combine(project,"report-draft.md");File.WriteAllText(sameName,"keep");
+        check(!rule.Matches(sameName),"drag ignore does not hide a same-named file elsewhere");
         IgnoreRule.Validate(new List<IgnoreRule>{rule});
+        var tab=PanelTab.OfFolder(project);tab.IgnoreRules.Add(PanelFiles.MakeIgnoreRule(notes));
+        var persisted=Store.Json.Deserialize<PanelTab>(Store.Json.Serialize(tab));
+        check(persisted.IgnoreRules.Count==1&&PanelFiles.Search(new State(),project,"notes",persisted.IgnoreRules).Length==0&&PanelFiles.Search(new State(),project,"notes").Length==1,"each folder tab keeps its own ignore rules across serialization");
+        var folderGroup=new Group(){Kind="文件夹",Folder=project,Folders=new List<string>{project}};
+        folderGroup.FolderIgnoreRules[project]=persisted.IgnoreRules;
+        Directory.CreateDirectory(Path.Combine(root,"scoped-panel"));var scopedStore=new Store(Path.Combine(root,"scoped-panel"),false);scopedStore.Data=new State();scopedStore.Data.Groups.Add(folderGroup);Store.Validate(scopedStore.Data);
+        check(!scopedStore.ItemsAt(folderGroup,"",project).Contains(notes)&&scopedStore.ItemsAt(folderGroup,"",project).Contains(report),"pinned folder partition applies only that folder tab's ignore rules");
+        var references=new State();var mapped=new Group(){Kind="文件夹",Folder=project,Folders=new List<string>{project}};
+        mapped.FolderIgnoreRules[project]=new List<IgnoreRule>{PanelFiles.MakeIgnoreRule(notes)};references.Groups.Add(mapped);
+        var mappedTab=PanelTab.OfFolder(project);mappedTab.IgnoreRules.Add(PanelFiles.MakeIgnoreRule(notes));references.PanelTabs.Add(mappedTab);
+        string relocated=project+"-moved";ShellActions.UpdateReferences(references,project,relocated,true);
+        check(mapped.FolderIgnoreRules.ContainsKey(relocated)&&mapped.FolderIgnoreRules[relocated][0].Pattern==Path.Combine(relocated,"notes.md")&&mappedTab.IgnoreRules[0].Pattern==Path.Combine(relocated,"notes.md"),"renaming a folder updates its scoped ignore rules and panel tab rules");
+        var selectedController=new Controller(scopedStore);
+        selectedController.ToggleGroupSelection(folderGroup);
+        check(new Store(scopedStore.Root).Data.SelectedWorkspaceGroups.Contains(folderGroup.Id),"selected workspaces persist for Alt+Space across restarts");
+        selectedController.ClearGroupSelection();
+        check(new Store(scopedStore.Root).Data.SelectedWorkspaceGroups.Count==0&&scopedStore.Data.Groups.Contains(folderGroup),"clearing workspace selection leaves desktop partitions intact");
         File.WriteAllText(Path.Combine(project,"copy.txt"),"copy");
         check(Path.GetFileName(PanelFiles.Unique(project,"copy.txt"))=="copy (2).txt","duplicate names keep both files");
         check(PanelFiles.CanPasteInto(new[]{report},nested)&&!PanelFiles.CanPasteInto(new[]{report},project),"dragging rejects dropping a file onto its own folder");
@@ -48,8 +67,14 @@ public static class WorkspacePanelTests {
         var panelStore=new Store(Path.Combine(root,"panel-ignore-state"),false);panelStore.Data=panelState;
         check(panelStore.Ignored(ignoredFile,null)&&!panelStore.Ignored(keptFile,null),"panel folders honour .gitignore while keeping other files visible");
         check(!PanelFiles.Search(panelState,project,"txt").Any(p=>p==ignoredFile),"workspace panel search skips files ignored by .gitignore");
+        var editable=panelState.IgnoreFiles.First(s=>s.Automatic&&s.Root==project);
+        editable.Lines[0]="kept.txt";editable.Automatic=false;editable.Revision="manual";
+        File.WriteAllText(Path.Combine(project,".gitignore"),"gitignored.txt\nchanged.txt\n");
+        IgnoreFiles.Sync(panelState);
+        check(editable.Lines.SequenceEqual(new[]{"kept.txt"})&&IgnoreFiles.Matches(editable,keptFile)&&!IgnoreFiles.Matches(editable,ignoredFile),"editing an imported rule keeps a separate local copy when the source file changes");
         panelState.PanelTabs.Clear();
-        check(IgnoreFiles.Sync(panelState)&&!panelState.IgnoreFiles.Any(s=>s.Automatic),"closing the panel tab drops the ignore file it imported");
+        IgnoreFiles.Sync(panelState);
+        check(!panelState.IgnoreFiles.Any(s=>s.Automatic)&&panelState.IgnoreFiles.Contains(editable),"closing a panel tab removes automatic imports but retains the user's edited local copy");
         var clamped=new State();clamped.PetScale=99;clamped.PanelIconSize=5000;clamped.PanelIgnoreIcon="";clamped.PanelWidth=20;clamped.PanelHeight=20;clamped.PanelViewMode="乱写";
         Store.Validate(clamped);
         check(clamped.PetScale==2&&clamped.PanelIconSize==96&&clamped.PanelIgnoreIcon=="⊘"&&clamped.PanelWidth==340&&clamped.PanelHeight==260&&clamped.PanelViewMode=="图标"&&clamped.PanelFolders!=null,"panel and pet preferences are validated on load");
@@ -209,6 +234,10 @@ public static class WorkspacePanelTests {
             Capture(pet,Path.Combine(output,"desktop-pet-calico-preview.png"));
             pet.ApplySkin("矢量猫");Pump(240);pet.UpdateLayout();
             Capture(pet,Path.Combine(output,"desktop-pet-vector-preview.png"));
+            var pinned=new Group(){Name="文件夹",Kind="文件夹",Folder=project,Folders=new List<string>{project,Path.Combine(project,"src")},Width=700,Height=420,FolderIndex=0};
+            var child=new Group(){Name="文档",HostGroupId=pinned.Id};store.Data.Groups.Add(pinned);store.Data.Groups.Add(child);
+            var fence=new FenceWindow(controller,pinned){Left=-20000,Top=-20000,ShowActivated=false};
+            try{fence.Show();fence.UpdateLayout();Thumbnails.RequestVisible(fence);Thumbnails.Drain(1000);fence.UpdateLayout();Capture(fence,Path.Combine(output,"pinned-workspace-preview.png"));}finally{fence.Close();}
             return 0;
         }finally{if(pet!=null)pet.Close();panel.Close();manager.Quit();app.Shutdown();}
     }

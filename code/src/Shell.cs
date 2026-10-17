@@ -77,6 +77,7 @@ public static class Shell {
         return true;
     }
     public static bool DesktopBindingValid(Window window,IntPtr host){IntPtr h=new WindowInteropHelper(window).Handle;return IsWindow(h)&&GetWindow(h,4)==host&&(GetWindowLongPtr(h,-16).ToInt64()&0x40000000L)==0;}
+    public static void Raise(Window window){IntPtr h=new WindowInteropHelper(window).Handle;if(h!=IntPtr.Zero)SetWindowPos(h,IntPtr.Zero,0,0,0,0,0x0013|0x0020);}
     public static void SetClickThrough(Window window){IntPtr handle=new WindowInteropHelper(window).Handle;long style=GetWindowLongPtr(handle,-20).ToInt64();SetWindowLongPtr(handle,-20,new IntPtr(style|0x20L|0x08000000L|0x80L));}
     public static long ExtendedStyle(Window window){return GetWindowLongPtr(new WindowInteropHelper(window).Handle,-20).ToInt64();}
     // 桌面组件以 WS_EX_NOACTIVATE 挂接，无法接收键盘。编辑时就临时允许激活并置前，

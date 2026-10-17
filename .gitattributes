@@ -1,0 +1,3 @@
+# Hook scripts run through the shell, which needs LF. Windows checks them out with
+# CRLF by default, and a CRLF shebang line fails with "bad interpreter".
+.githooks/* text eol=lf
