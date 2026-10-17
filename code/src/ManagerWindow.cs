@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.IO;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -127,7 +128,7 @@ public partial class ManagerWindow : Window {
         controller.ToggleSelectedWorkspace();
     }
     IntPtr Hook(IntPtr h,int msg,IntPtr w,IntPtr l,ref bool handled){if(msg==0x312){handled=true;switch(w.ToInt32()){case 1:controller.ToggleHidden();break;case 2:controller.Page(-1);break;case 3:controller.Page(1);break;case 5:ToggleWorkspaceHotkey();break;case 6:TogglePet();break;case 7:controller.ClearGroupSelection();break;case 8:ShowQuickSearch(true);break;}}return IntPtr.Zero;}
-    public void Quit(){quitting=true;controller.Stop();try{controller.Store.Save();}catch{}if(shellActions!=null)try{DesktopShellActions.Unregister();}catch(Exception ex){SetStatus("桌面右键入口清理未完成："+ex.Message);}Close();}
+    public void Quit(){quitting=true;AiClient.Shutdown();controller.Stop();try{controller.Store.Save();}catch{}if(shellActions!=null)try{DesktopShellActions.Unregister();}catch(Exception ex){SetStatus("桌面右键入口清理未完成："+ex.Message);}Close();}
     public void SetStatus(string text){status.Text=text;}
     public void Refresh(){
         var data=controller.Store.Data;stats.Text=data.Groups.Count+" 个分组 · "+data.Widgets.Count+" 个组件 · "+data.Groups.Sum(g=>controller.Store.Items(g,controller.Search).Count())+" 个项目 · "+(controller.Running?(controller.Docked?"桌面模式":"窗口预览"):"等待启动")+(controller.Hidden?" · 已隐藏":"");page.Text="第 "+(data.Page+1)+" / "+data.Pages+" 页";
@@ -209,7 +210,15 @@ public partial class ManagerWindow : Window {
         w.Content=new ScrollViewer(){Content=p,VerticalScrollBarVisibility=ScrollBarVisibility.Auto};w.ShowDialog();
     }
     void AiSettings(){var w=Ui.Dialog("模型设置",570,330,this);var p=new StackPanel(){Margin=new Thickness(22)};p.Children.Add(Ui.Text("支持本地 Ollama 和兼容 Chat Completions 的服务",14,Ui.Ink));TextBox endpoint=Ui.Input(controller.Store.Data.AiEndpoint),model=Ui.Input(controller.Store.Data.AiModel);p.Children.Add(Ui.Text("服务地址：Ollama 根地址，或兼容服务的 /v1 地址",12,Ui.Muted));p.Children.Add(endpoint);p.Children.Add(Ui.Text("模型名称",12,Ui.Muted));p.Children.Add(model);p.Children.Add(Ui.Text("兼容服务密钥从 QIDESK_AI_KEY 环境变量读取。仅发送文件名、扩展名和分组名。",11,Ui.Muted));p.Children.Add(Ui.Button("保存",delegate{controller.Store.Data.AiEndpoint=endpoint.Text.Trim();controller.Store.Data.AiModel=model.Text.Trim();controller.SaveAndRefresh(false);w.Close();}));w.Content=p;w.ShowDialog();}
-    async void GetAi(){SetStatus("正在请求模型建议…");try{var list=await Ai.Recommend(controller.Store);ShowSuggestions(list,"AI 分类建议");SetStatus("AI 建议已返回；应用前可逐项选择。");}catch(Exception ex){SetStatus("模型请求失败："+ex.Message);}}
+    async void GetAi(){
+        SetStatus("正在请求模型建议…");
+        try{
+            var progress=new Action<string>(delegate(string text){Dispatcher.BeginInvoke(new Action(delegate{SetStatus(text);}));});
+            var list=await Task.Run(()=>AiClient.Recommend(controller.Store,progress));
+            ShowSuggestions(list,"AI 分类建议");
+            SetStatus("AI 建议已返回；应用前可逐项选择。");
+        }catch(Exception ex){SetStatus("模型请求失败："+ex.Message);}
+    }
     void ShowSuggestions(List<Suggestion> suggestions,string title){var w=Ui.Dialog(title,760,520,this);var p=new DockPanel(){Margin=new Thickness(22)};var bottom=new StackPanel();DockPanel.SetDock(bottom,Dock.Bottom);bottom.Children.Add(Ui.Text(suggestions.Count+" 条建议 · 选择后应用，可撤销",12,Ui.Muted));var selected=new List<Tuple<CheckBox,Suggestion>>();bottom.Children.Add(Ui.Button("应用选中的建议",delegate{controller.ApplySuggestions(selected.Where(x=>x.Item1.IsChecked==true).Select(x=>x.Item2));w.Close();}));p.Children.Add(bottom);var rows=new StackPanel();foreach(var s in suggestions){var check=new CheckBox(){Content=s.ToString(),IsChecked=true,Margin=new Thickness(0,0,0,14)};selected.Add(Tuple.Create(check,s));rows.Children.Add(check);}if(suggestions.Count==0)rows.Children.Add(Ui.Text("当前没有需要调整的项目。",16,Ui.Ink));p.Children.Add(new ScrollViewer(){Content=rows});w.Content=p;w.ShowDialog();}
 }
 }

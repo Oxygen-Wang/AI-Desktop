@@ -31,25 +31,59 @@ $taskMcpOutputPath=Join-Path $taskDist ('Mcp-'+$taskOutputName)
 $taskMcpArguments=$arguments | ForEach-Object { if ($_ -eq '/target:winexe') { '/target:exe' } elseif ($_ -like '/out:*') { '/out:'+$taskMcpOutputPath } else { $_ } }
 & $compiler @taskMcpArguments
 if ($LASTEXITCODE -ne 0) { throw 'MCP compilation failed.' }
+# AI sidecar binary: the same sources compiled as a console exe. The app calls it
+# as a child process with --ai-serve. Boundary and protocol: research/AI-SIDECAR.md.
+$taskAiOutputPath=Join-Path $taskDist ('Ai-'+$taskOutputName)
+$taskAiArguments=$arguments | ForEach-Object { if ($_ -eq '/target:winexe') { '/target:exe' } elseif ($_ -like '/out:*') { '/out:'+$taskAiOutputPath } else { $_ } }
+& $compiler @taskAiArguments
+if ($LASTEXITCODE -ne 0) { throw 'AI sidecar compilation failed.' }
 $taskTestOutputPath=Join-Path $taskDist ('Tests-'+$taskOutputName)
 $taskTestArguments=$taskBase + @('/target:winexe','/define:QIDESK_TESTS',('/out:'+$taskTestOutputPath)) + $taskAppSources + $taskTestSources
 & $compiler @taskTestArguments
 if ($LASTEXITCODE -ne 0) { throw 'Test compilation failed.' }
 $taskMcpOutputPath | Set-Content -LiteralPath (Join-Path $taskDist 'latest-mcp.txt')
+$taskAiOutputPath | Set-Content -LiteralPath (Join-Path $taskDist 'latest-ai.txt')
 $taskTestOutputPath | Set-Content -LiteralPath (Join-Path $taskDist 'latest-tests.txt')
 $taskOutputPath | Set-Content -LiteralPath (Join-Path $taskDist 'latest.txt')
 Copy-Item -LiteralPath (Join-Path $taskRoot 'assets\fluent\LICENSE') -Destination (Join-Path $taskDist 'Fluent-Icons-LICENSE.txt') -Force
+# Ship only runtime PNG packs, provenance and licenses. Original SVG sources and
+# development conversion scripts remain in the repository.
+$taskSkinSource=Join-Path $taskRoot 'assets\icon-skins'
+if(Test-Path -LiteralPath $taskSkinSource){
+    foreach($taskSkin in Get-ChildItem -LiteralPath $taskSkinSource -Directory){
+        $taskSkinTarget=Join-Path (Join-Path $taskDist 'icon-skins') $taskSkin.Name
+        New-Item -ItemType Directory -Force -Path $taskSkinTarget | Out-Null
+        Get-ChildItem -LiteralPath $taskSkin.FullName -File | Where-Object {$_.Extension -in @('.png','.json','.txt','.md')} | ForEach-Object {Copy-Item -LiteralPath $_.FullName -Destination $taskSkinTarget -Force}
+    }
+}
 # Cat skins (from references/PathCat-main) are copied as-is next to the exe.
 # Keep this file ASCII-only: Windows PowerShell 5.1 reads it with the ANSI code page.
 $taskCatSource = Join-Path $taskRoot 'assets\cat'
 $taskCatTarget = Join-Path $taskDist 'cat'
 if (Test-Path -LiteralPath $taskCatSource) {
-    if (Test-Path -LiteralPath $taskCatTarget) { Remove-Item -LiteralPath $taskCatTarget -Recurse -Force }
-    New-Item -ItemType Directory -Force -Path $taskCatTarget | Out-Null
-    Get-ChildItem -LiteralPath $taskCatSource -Force | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $taskCatTarget -Recurse -Force }
+    if (Test-Path -LiteralPath $taskCatTarget) {
+        # Mirror instead of delete-and-copy: robocopy keeps the target in sync and
+        # does not depend on the recycle bin, so it also works in restricted shells.
+        & robocopy $taskCatSource $taskCatTarget /MIR /NFL /NDL /NJH /NJS /NP | Out-Null
+        if ($LASTEXITCODE -ge 8) { throw ('Cat skin sync failed, robocopy exit ' + $LASTEXITCODE) }
+    } else {
+        New-Item -ItemType Directory -Force -Path $taskCatTarget | Out-Null
+        Get-ChildItem -LiteralPath $taskCatSource -Force | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $taskCatTarget -Recurse -Force }
+    }
 }
 # Keep dist to the current build only. Locked files (a running instance) are skipped.
-$taskKeep = @($taskOutputPath,$taskMcpOutputPath,$taskTestOutputPath) | ForEach-Object { [IO.Path]::GetFullPath($_) }
-Get-ChildItem -LiteralPath $taskDist -Filter '*.exe' | Where-Object { $taskKeep -notcontains $_.FullName } | ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue }
+$taskKeep = @($taskOutputPath,$taskMcpOutputPath,$taskTestOutputPath,$taskAiOutputPath) | ForEach-Object { [IO.Path]::GetFullPath($_) }
+Get-ChildItem -LiteralPath $taskDist -Filter '*.exe' | Where-Object { $taskKeep -notcontains $_.FullName } | ForEach-Object { $stale=$_; try { Remove-Item -LiteralPath $stale.FullName -Force -ErrorAction Stop } catch { Write-Host ('Kept '+$stale.Name+' ('+$_.Exception.Message+')') } }
 Write-Host ('Built '+$taskOutputPath)
+Write-Host ('Built '+$taskAiOutputPath)
 Write-Host ('Built '+$taskTestOutputPath)
+# The code guard runs after the binaries exist so a build still leaves something
+# usable when only a rule is violated. It never blocks the build: a broken rule must
+# not stop someone from testing the app they just wrapped. It does stop a commit;
+# see check-code.ps1 and CODE-RULES.md for how that is wired up.
+try {
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $taskRoot 'check-code.ps1') | ForEach-Object { Write-Host $_ }
+    if ($LASTEXITCODE -ne 0) { Write-Host 'Code guard reported new violations; the build itself succeeded.' }
+} catch {
+    Write-Host ('Code guard could not run: '+$_.Exception.Message)
+}
